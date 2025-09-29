@@ -2,7 +2,7 @@ import sys
 import os
 from PyQt5.QtWidgets import (QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
                              QPushButton, QTextEdit, QLabel, QFileDialog,
-                             QMessageBox, QProgressBar, QSplitter, QFrame)
+                             QMessageBox, QProgressBar, QSplitter, QFrame, QStatusBar)
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtGui import QFont, QPalette
 
@@ -71,8 +71,8 @@ class MeetingAssistantWindow(QMainWindow):
 
     def init_ui(self):
         """Initialize the user interface"""
-        self.setWindowTitle("Meeting Assistant")
-        self.setGeometry(100, 100, 1000, 700)
+        self.setWindowTitle("Meeting Recorder")
+        self.setGeometry(100, 100, 1200, 800)
 
         # Central widget
         central_widget = QWidget()
@@ -81,81 +81,89 @@ class MeetingAssistantWindow(QMainWindow):
         # Main layout
         main_layout = QVBoxLayout(central_widget)
 
-        # Title
-        title_label = QLabel("Meeting Assistant")
-        title_label.setAlignment(Qt.AlignCenter)
-        title_font = QFont()
-        title_font.setPointSize(18)
-        title_font.setBold(True)
-        title_label.setFont(title_font)
-        main_layout.addWidget(title_label)
+        # Top button controls
+        top_controls_layout = QHBoxLayout()
 
-        # Recording controls
-        controls_layout = QHBoxLayout()
-
-        self.record_button = QPushButton("Start Recording")
-        self.record_button.setMinimumHeight(50)
+        self.record_button = QPushButton("Record")
+        self.record_button.setMinimumHeight(40)
+        self.record_button.setMinimumWidth(120)
         self.record_button.clicked.connect(self.toggle_recording)
-        controls_layout.addWidget(self.record_button)
+        top_controls_layout.addWidget(self.record_button)
 
-        self.status_label = QLabel("Ready to record")
-        self.status_label.setAlignment(Qt.AlignCenter)
-        controls_layout.addWidget(self.status_label)
+        self.open_file_button = QPushButton("Open File")
+        self.open_file_button.setMinimumHeight(40)
+        self.open_file_button.setMinimumWidth(120)
+        self.open_file_button.clicked.connect(self.open_audio_file)
+        top_controls_layout.addWidget(self.open_file_button)
 
-        main_layout.addLayout(controls_layout)
+        self.save_summary_button = QPushButton("Save Summary")
+        self.save_summary_button.setMinimumHeight(40)
+        self.save_summary_button.setMinimumWidth(120)
+        self.save_summary_button.clicked.connect(self.save_summary)
+        self.save_summary_button.setEnabled(False)
+        top_controls_layout.addWidget(self.save_summary_button)
+
+        # Add stretch to push buttons to the left
+        top_controls_layout.addStretch()
+
+        main_layout.addLayout(top_controls_layout)
 
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         main_layout.addWidget(self.progress_bar)
 
-        # Content splitter
+        # Content splitter (horizontal)
         splitter = QSplitter(Qt.Horizontal)
 
-        # Transcript section
+        # Left side - Transcript section
         transcript_frame = QFrame()
         transcript_layout = QVBoxLayout(transcript_frame)
 
         transcript_label = QLabel("Transcript")
-        transcript_label.setFont(QFont("Arial", 12, QFont.Bold))
+        transcript_label.setFont(QFont("Arial", 14, QFont.Bold))
         transcript_layout.addWidget(transcript_label)
 
         self.transcript_text = QTextEdit()
         self.transcript_text.setPlaceholderText("Transcript will appear here after recording...")
         transcript_layout.addWidget(self.transcript_text)
 
+        # Clean Transcript button
+        self.clean_transcript_button = QPushButton("Clean Transcript")
+        self.clean_transcript_button.setMinimumHeight(35)
+        self.clean_transcript_button.clicked.connect(self.clean_transcript)
+        self.clean_transcript_button.setEnabled(False)
+        transcript_layout.addWidget(self.clean_transcript_button)
+
         splitter.addWidget(transcript_frame)
 
-        # Summary section
+        # Right side - Summary section
         summary_frame = QFrame()
         summary_layout = QVBoxLayout(summary_frame)
 
-        summary_label = QLabel("Summary")
-        summary_label.setFont(QFont("Arial", 12, QFont.Bold))
+        summary_label = QLabel("## Meeting Summary")
+        summary_label.setFont(QFont("Arial", 14, QFont.Bold))
         summary_layout.addWidget(summary_label)
 
         self.summary_text = QTextEdit()
-        self.summary_text.setPlaceholderText("Summary will appear here after processing...")
+        self.summary_text.setPlaceholderText("### Key Points\n\n### Decisions\n\n### Action Items\n\n### Open Questions")
         summary_layout.addWidget(self.summary_text)
 
         splitter.addWidget(summary_frame)
 
+        # Set equal sizes for both panels
+        splitter.setSizes([600, 600])
+
         main_layout.addWidget(splitter)
 
-        # Save controls
-        save_layout = QHBoxLayout()
+        # Status bar
+        self.status_bar = QStatusBar()
+        self.status_bar.showMessage("Recording stopped")
+        self.setStatusBar(self.status_bar)
 
-        self.save_md_button = QPushButton("Save as Markdown")
-        self.save_md_button.clicked.connect(self.save_as_markdown)
-        self.save_md_button.setEnabled(False)
-        save_layout.addWidget(self.save_md_button)
-
-        self.save_txt_button = QPushButton("Save as Text")
-        self.save_txt_button.clicked.connect(self.save_as_text)
-        self.save_txt_button.setEnabled(False)
-        save_layout.addWidget(self.save_txt_button)
-
-        main_layout.addLayout(save_layout)
+        # Add transcription status to status bar
+        self.transcription_status = QLabel("Ready")
+        self.status_bar.addPermanentWidget(self.transcription_status)
 
     def setup_style(self):
         """Setup application styling"""
@@ -198,28 +206,28 @@ class MeetingAssistantWindow(QMainWindow):
             # Start recording
             success = self.recorder.start_recording()
             if success:
-                self.record_button.setText("Stop Recording")
+                self.record_button.setText("Stop")
                 self.record_button.setStyleSheet("background-color: #f44336;")
-                self.status_label.setText("Recording...")
+                self.status_bar.showMessage("Recording...")
                 self.transcript_text.clear()
                 self.summary_text.clear()
-                self.save_md_button.setEnabled(False)
-                self.save_txt_button.setEnabled(False)
+                self.save_summary_button.setEnabled(False)
+                self.clean_transcript_button.setEnabled(False)
             else:
                 QMessageBox.warning(self, "Error", "Failed to start recording")
         else:
             # Stop recording
             audio_file = self.recorder.stop_recording()
-            self.record_button.setText("Start Recording")
+            self.record_button.setText("Record")
             self.record_button.setStyleSheet("")
-            self.status_label.setText("Processing...")
+            self.status_bar.showMessage("Recording stopped")
 
             if audio_file:
                 # Start processing in worker thread
                 self.start_processing(audio_file)
             else:
                 QMessageBox.warning(self, "Error", "Failed to save recording")
-                self.status_label.setText("Ready to record")
+                self.status_bar.showMessage("Recording stopped")
 
     def start_processing(self, audio_file):
         """Start processing audio in worker thread"""
@@ -241,58 +249,78 @@ class MeetingAssistantWindow(QMainWindow):
         self.summary_text.setText(summary)
 
         self.progress_bar.setVisible(False)
-        self.status_label.setText("Processing complete!")
+        self.status_bar.showMessage("Recording stopped")
+        self.transcription_status.setText(f"Transcribed with Whisper-{Config.WHISPER_MODEL} (local)")
 
-        self.save_md_button.setEnabled(True)
-        self.save_txt_button.setEnabled(True)
+        self.save_summary_button.setEnabled(True)
+        self.clean_transcript_button.setEnabled(True)
 
     def on_processing_error(self, error_message):
         """Handle processing errors"""
         self.progress_bar.setVisible(False)
-        self.status_label.setText("Ready to record")
+        self.status_bar.showMessage("Recording stopped")
+        self.transcription_status.setText("Error")
         QMessageBox.critical(self, "Processing Error", error_message)
 
     def on_progress_update(self, message):
         """Update progress status"""
-        self.status_label.setText(message)
+        self.transcription_status.setText(message)
 
-    def save_as_markdown(self):
-        """Save summary as markdown file"""
+    def open_audio_file(self):
+        """Open and process an existing audio file"""
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Open Audio File", "", "Audio files (*.wav *.mp3 *.m4a *.flac *.ogg)"
+        )
+
+        if filename:
+            self.start_processing(filename)
+
+    def save_summary(self):
+        """Save summary with file dialog"""
         if not self.current_summary:
             QMessageBox.warning(self, "Warning", "No summary to save")
             return
 
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Save Summary as Markdown", "", "Markdown files (*.md)"
+        filename, selected_filter = QFileDialog.getSaveFileName(
+            self, "Save Summary", "", "Markdown files (*.md);;Text files (*.txt)"
         )
 
         if filename:
-            filepath = self.file_manager.save_summary_as_markdown(
-                self.current_summary, os.path.basename(filename)
-            )
+            if selected_filter == "Markdown files (*.md)":
+                filepath = self.file_manager.save_summary_as_markdown(
+                    self.current_summary, os.path.basename(filename)
+                )
+            else:
+                filepath = self.file_manager.save_summary_as_text(
+                    self.current_summary, os.path.basename(filename)
+                )
+
             if filepath:
                 QMessageBox.information(self, "Success", f"Summary saved to:\n{filepath}")
             else:
                 QMessageBox.critical(self, "Error", "Failed to save file")
 
-    def save_as_text(self):
-        """Save summary as text file"""
-        if not self.current_summary:
-            QMessageBox.warning(self, "Warning", "No summary to save")
+    def clean_transcript(self):
+        """Clean and improve the transcript text"""
+        if not self.current_transcript:
+            QMessageBox.warning(self, "Warning", "No transcript to clean")
             return
 
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Save Summary as Text", "", "Text files (*.txt)"
-        )
+        from transcription.cleaner import TranscriptCleaner
+        cleaner = TranscriptCleaner()
+        cleaned_text = cleaner.clean_transcript(self.current_transcript)
 
-        if filename:
-            filepath = self.file_manager.save_summary_as_text(
-                self.current_summary, os.path.basename(filename)
-            )
-            if filepath:
-                QMessageBox.information(self, "Success", f"Summary saved to:\n{filepath}")
-            else:
-                QMessageBox.critical(self, "Error", "Failed to save file")
+        self.transcript_text.setText(cleaned_text)
+        self.current_transcript = cleaned_text
+
+        # Regenerate summary with cleaned transcript
+        if cleaned_text:
+            from summarization.summarizer import MeetingSummarizer
+            summarizer = MeetingSummarizer()
+            summary, _ = summarizer.summarize_transcript(cleaned_text)
+            if summary:
+                self.current_summary = summary
+                self.summary_text.setText(summary)
 
     def closeEvent(self, event):
         """Handle application close event"""
