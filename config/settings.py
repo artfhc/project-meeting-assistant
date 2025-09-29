@@ -1,11 +1,17 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Config:
+    # API Keys
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+
     # Audio Recording Settings
     SAMPLE_RATE = 44100
     CHANNELS = 1
     CHUNK_SIZE = 1024
-    AUDIO_FORMAT = 'wav'
+    AUDIO_FORMAT = 'mp3'
 
     # File Paths
     OUTPUT_DIR = 'outputs'
@@ -15,6 +21,9 @@ class Config:
 
     # Whisper Settings (Local Only)
     WHISPER_MODEL = 'base'  # tiny, base, small, medium, large
+
+    # OpenAI Settings
+    OPENAI_MODEL = 'gpt-4o-mini'  # or 'gpt-4' for better quality
 
     @classmethod
     def create_directories(cls):

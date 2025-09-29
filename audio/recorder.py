@@ -52,9 +52,9 @@ class AudioRecorder:
             self.stream.stop_stream()
             self.stream.close()
 
-        # Generate filename with timestamp
+        # Generate filename with timestamp and configured format
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"recording_{timestamp}.wav"
+        filename = f"recording_{timestamp}.{Config.AUDIO_FORMAT}"
         filepath = f"{Config.AUDIO_DIR}/{filename}"
 
         # Save the recording
@@ -73,14 +73,58 @@ class AudioRecorder:
                 break
 
     def _save_recording(self, filepath):
-        """Save recorded frames to WAV file"""
+        """Save recorded frames to audio file in configured format"""
         try:
-            with wave.open(filepath, 'wb') as wf:
-                wf.setnchannels(Config.CHANNELS)
-                wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
-                wf.setframerate(Config.SAMPLE_RATE)
-                wf.writeframes(b''.join(self.frames))
-            print(f"Recording saved to: {filepath}")
+            if Config.AUDIO_FORMAT.lower() == 'wav':
+                # Save directly as WAV
+                with wave.open(filepath, 'wb') as wf:
+                    wf.setnchannels(Config.CHANNELS)
+                    wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
+                    wf.setframerate(Config.SAMPLE_RATE)
+                    wf.writeframes(b''.join(self.frames))
+                print(f"Recording saved to: {filepath}")
+
+            elif Config.AUDIO_FORMAT.lower() == 'mp3':
+                # Save as WAV first, then convert to MP3
+                temp_wav_path = filepath.replace('.mp3', '_temp.wav')
+
+                # Save temporary WAV file
+                with wave.open(temp_wav_path, 'wb') as wf:
+                    wf.setnchannels(Config.CHANNELS)
+                    wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
+                    wf.setframerate(Config.SAMPLE_RATE)
+                    wf.writeframes(b''.join(self.frames))
+
+                # Convert WAV to MP3 using pydub
+                try:
+                    from pydub import AudioSegment
+                    audio = AudioSegment.from_wav(temp_wav_path)
+                    audio.export(filepath, format="mp3", bitrate="128k")
+
+                    # Clean up temporary WAV file
+                    import os
+                    os.remove(temp_wav_path)
+
+                    print(f"Recording saved to: {filepath}")
+                except ImportError:
+                    # If pydub not available, save as WAV instead
+                    import os
+                    wav_filepath = filepath.replace('.mp3', '.wav')
+                    os.rename(temp_wav_path, wav_filepath)
+                    print(f"pydub not available - saved as WAV: {wav_filepath}")
+                    return wav_filepath
+            else:
+                # Default to WAV for unsupported formats
+                print(f"Unsupported format '{Config.AUDIO_FORMAT}', saving as WAV")
+                wav_filepath = filepath.replace(f'.{Config.AUDIO_FORMAT}', '.wav')
+                with wave.open(wav_filepath, 'wb') as wf:
+                    wf.setnchannels(Config.CHANNELS)
+                    wf.setsampwidth(self.audio.get_sample_size(pyaudio.paInt16))
+                    wf.setframerate(Config.SAMPLE_RATE)
+                    wf.writeframes(b''.join(self.frames))
+                print(f"Recording saved to: {wav_filepath}")
+                return wav_filepath
+
         except Exception as e:
             print(f"Error saving recording: {e}")
 

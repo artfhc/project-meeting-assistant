@@ -1,5 +1,5 @@
-# Local-only meeting summarizer
-from .local_summarizer import LocalMeetingSummarizer
+# OpenAI-powered meeting summarizer
+from .openai_summarizer import OpenAISummarizer
 
 # Alias for compatibility with existing imports
-MeetingSummarizer = LocalMeetingSummarizer
+MeetingSummarizer = OpenAISummarizer

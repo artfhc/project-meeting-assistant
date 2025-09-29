@@ -53,7 +53,7 @@ def check_dependencies():
     return missing_deps
 
 def check_system_requirements():
-    """Check if system meets requirements for local operation"""
+    """Check if system meets requirements"""
     warnings = []
 
     # Check available disk space for Whisper models
@@ -61,6 +61,10 @@ def check_system_requirements():
     free_space_gb = shutil.disk_usage(".").free / (1024**3)
     if free_space_gb < 2:
         warnings.append("Low disk space detected. Whisper models require at least 2GB of free space.")
+
+    # Check for OpenAI API key
+    if not Config.OPENAI_API_KEY:
+        warnings.append("OpenAI API key not found. Please set OPENAI_API_KEY in your .env file for summarization to work.")
 
     return warnings
 
@@ -114,11 +118,13 @@ def main():
         main_window.show()
 
         print("Meeting Assistant started successfully!")
-        print("This is a fully local application - no internet connection required!")
+        print("Features:")
+        print("- Local transcription with Whisper (no internet required)")
+        print("- AI-powered summarization with OpenAI GPT")
         print("You can now:")
         print("1. Click 'Start Recording' to begin recording audio")
-        print("2. Click 'Stop Recording' to end recording and process the audio with local Whisper")
-        print("3. View the transcript and automatically generated summary")
+        print("2. Click 'Stop Recording' to end recording and process with local Whisper + OpenAI")
+        print("3. View the transcript and AI-generated summary")
         print("4. Save the summary as Markdown or Text file")
 
         # Start the application event loop

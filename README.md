@@ -5,17 +5,17 @@ A desktop application for recording, transcribing, and summarizing meetings usin
 ## Features
 
 - **Audio Recording**: Record audio using your laptop microphone and save as WAV files
-- **Automatic Transcription**: Convert audio to text using OpenAI Whisper (local only - no API required)
-- **Smart Summarization**: Generate structured meeting summaries using local text processing
+- **Automatic Transcription**: Convert audio to text using OpenAI Whisper (local - no API required)
+- **AI-Powered Summarization**: Generate intelligent meeting summaries using OpenAI GPT models
 - **Export Options**: Save summaries as Markdown or plain text files
 - **Clean UI**: Built with PyQt5 for a modern, cross-platform desktop experience
-- **Fully Local**: No internet connection or API keys required
+- **Hybrid Approach**: Local transcription + cloud summarization for best of both worlds
 
 ## Requirements
 
 - Python 3.7 or higher
 - Microphone access
-- No internet connection required (fully local)
+- OpenAI API key (for summarization)
 
 ## Installation
 
@@ -36,7 +36,13 @@ A desktop application for recording, transcribing, and summarizing meetings usin
    pip install -r requirements.txt
    ```
 
-3. **Run the application**
+3. **Configure API key**
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your OpenAI API key
+   ```
+
+4. **Run the application**
    ```bash
    python app.py
    ```
@@ -69,27 +75,40 @@ A desktop application for recording, transcribing, and summarizing meetings usin
 
 ## Configuration
 
+### API Key Setup
+
+1. **Get an OpenAI API key**:
+   - Go to [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+   - Create a new API key
+   - Copy the key
+
+2. **Configure the application**:
+   ```bash
+   cp .env.example .env
+   # Edit .env and paste your API key:
+   OPENAI_API_KEY=your_actual_api_key_here
+   ```
+
 ### Settings
 
 You can modify settings in `config/settings.py`:
 
-- Audio quality settings (sample rate, channels, chunk size)
-- Whisper model size (tiny, base, small, medium, large)
+- **Audio quality settings** (sample rate, channels, chunk size)
+- **Whisper model size** (tiny, base, small, medium, large)
   - `tiny`: Fastest, lowest accuracy (~39 MB)
   - `base`: Good balance (~74 MB) - **Default**
   - `small`: Better accuracy (~244 MB)
   - `medium`: High accuracy (~769 MB)
   - `large`: Best accuracy (~1550 MB)
-
-### No API Keys Required
-
-This application runs completely locally and does not require any API keys or internet connection for core functionality.
+- **OpenAI model** (gpt-3.5-turbo or gpt-4)
+  - `gpt-3.5-turbo`: Faster, cheaper - **Default**
+  - `gpt-4`: Better quality, more expensive
 
 ## Usage
 
 1. **Start Recording**: Click the "Start Recording" button to begin recording audio
 2. **Stop Recording**: Click "Stop Recording" when finished
-3. **Wait for Processing**: The app will automatically transcribe the audio using local Whisper and generate a summary
+3. **Wait for Processing**: The app will automatically transcribe the audio using local Whisper and generate an AI summary
 4. **Review Results**: View the transcript and summary in the application
 5. **Save Summary**: Use "Save as Markdown" or "Save as Text" to export the summary
 
