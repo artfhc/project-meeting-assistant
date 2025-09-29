@@ -1,0 +1,16 @@
+# Meeting Assistant Requirements (Local-Only Version)
+# For macOS users: Install PortAudio first with: brew install portaudio
+
+# GUI Framework
+PyQt5>=5.15.7
+
+# Audio Processing
+# Note: On macOS, install portaudio first: brew install portaudio
+PyAudio>=0.2.11
+
+# AI/ML Libraries (Local Only)
+openai-whisper
+
+# Dependencies for Whisper
+torch>=1.9.0
+numpy>=1.21.0
