@@ -1,13 +1,15 @@
 # Meeting Assistant Requirements
-# For macOS users: Install PortAudio first with: brew install portaudio
+# For macOS users:
+# - Install PortAudio: brew install portaudio
+# - For MP3 support: brew install ffmpeg
 
 # GUI Framework
 PyQt5>=5.15.7
 
 # Audio Processing
 # Note: On macOS, install portaudio first: brew install portaudio
+# For MP3 support, install FFmpeg: brew install ffmpeg
 PyAudio>=0.2.11
-pydub>=0.25.1
 
 # AI/ML Libraries
 openai-whisper

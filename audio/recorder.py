@@ -57,10 +57,10 @@ class AudioRecorder:
         filename = f"recording_{timestamp}.{Config.AUDIO_FORMAT}"
         filepath = f"{Config.AUDIO_DIR}/{filename}"
 
-        # Save the recording
-        self._save_recording(filepath)
+        # Save the recording and get the actual filepath
+        actual_filepath = self._save_recording(filepath)
 
-        return filepath
+        return actual_filepath or filepath
 
     def _record_audio(self):
         """Internal method to continuously record audio"""
@@ -83,9 +83,10 @@ class AudioRecorder:
                     wf.setframerate(Config.SAMPLE_RATE)
                     wf.writeframes(b''.join(self.frames))
                 print(f"Recording saved to: {filepath}")
+                return filepath
 
             elif Config.AUDIO_FORMAT.lower() == 'mp3':
-                # Save as WAV first, then convert to MP3
+                # Save as WAV first, then convert to MP3 using FFmpeg directly
                 temp_wav_path = filepath.replace('.mp3', '_temp.wav')
 
                 # Save temporary WAV file
@@ -95,23 +96,53 @@ class AudioRecorder:
                     wf.setframerate(Config.SAMPLE_RATE)
                     wf.writeframes(b''.join(self.frames))
 
-                # Convert WAV to MP3 using pydub
+                # Convert WAV to MP3 using FFmpeg directly
                 try:
-                    from pydub import AudioSegment
-                    audio = AudioSegment.from_wav(temp_wav_path)
-                    audio.export(filepath, format="mp3", bitrate="128k")
+                    import subprocess
+                    import os
+
+                    # Use FFmpeg to convert WAV to MP3
+                    result = subprocess.run([
+                        'ffmpeg', '-i', temp_wav_path,
+                        '-codec:a', 'libmp3lame',
+                        '-b:a', '128k',
+                        '-y',  # Overwrite output file
+                        filepath
+                    ], capture_output=True, text=True, check=True)
 
                     # Clean up temporary WAV file
-                    import os
                     os.remove(temp_wav_path)
 
                     print(f"Recording saved to: {filepath}")
-                except ImportError:
-                    # If pydub not available, save as WAV instead
+                    return filepath
+
+                except subprocess.CalledProcessError as e:
+                    # FFmpeg conversion failed
+                    import os
+                    wav_filepath = filepath.replace('.mp3', '.wav')
+                    if os.path.exists(temp_wav_path):
+                        os.rename(temp_wav_path, wav_filepath)
+                    print(f"MP3 conversion failed - saved as WAV: {wav_filepath}")
+                    print(f"FFmpeg error: {e.stderr}")
+                    return wav_filepath
+
+                except FileNotFoundError:
+                    # FFmpeg not found in PATH
                     import os
                     wav_filepath = filepath.replace('.mp3', '.wav')
                     os.rename(temp_wav_path, wav_filepath)
-                    print(f"pydub not available - saved as WAV: {wav_filepath}")
+                    print(f"FFmpeg not found - saved as WAV: {wav_filepath}")
+                    print(f"To enable MP3 support, install FFmpeg: brew install ffmpeg")
+                    return wav_filepath
+
+                except Exception as e:
+                    # Other conversion error
+                    import os
+                    wav_filepath = filepath.replace('.mp3', '.wav')
+                    if os.path.exists(temp_wav_path):
+                        os.rename(temp_wav_path, wav_filepath)
+                    print(f"MP3 conversion failed - saved as WAV: {wav_filepath}")
+                    print(f"Error details: {e}")
                     return wav_filepath
             else:
                 # Default to WAV for unsupported formats

@@ -17,9 +17,9 @@ from storage.file_manager import FileManager
 from storage.db import MeetingDatabase
 from config.settings import Config
 
-class WorkerThread(QThread):
-    """Worker thread for processing audio transcription and summarization"""
-    finished = pyqtSignal(str, str)  # transcript, summary
+class TranscriptionWorkerThread(QThread):
+    """Worker thread for processing audio transcription only"""
+    finished = pyqtSignal(str)  # transcript only
     error = pyqtSignal(str)
     progress = pyqtSignal(str)
 
@@ -42,19 +42,36 @@ class WorkerThread(QThread):
             cleaner = TranscriptCleaner()
             cleaned_transcript = cleaner.clean_transcript(transcript)
 
+            self.finished.emit(cleaned_transcript)
+
+        except Exception as e:
+            self.error.emit(f"Error processing audio: {str(e)}")
+
+class SummarizationWorkerThread(QThread):
+    """Worker thread for generating summary from transcript"""
+    finished = pyqtSignal(str)  # summary only
+    error = pyqtSignal(str)
+    progress = pyqtSignal(str)
+
+    def __init__(self, transcript):
+        super().__init__()
+        self.transcript = transcript
+
+    def run(self):
+        try:
             # Generate summary
             self.progress.emit("Generating summary...")
             summarizer = MeetingSummarizer()
-            summary, summary_file = summarizer.summarize_transcript(cleaned_transcript)
+            summary, summary_file = summarizer.summarize_transcript(self.transcript)
 
             if not summary:
                 self.error.emit("Failed to generate summary")
                 return
 
-            self.finished.emit(cleaned_transcript, summary)
+            self.finished.emit(summary)
 
         except Exception as e:
-            self.error.emit(f"Error processing audio: {str(e)}")
+            self.error.emit(f"Error generating summary: {str(e)}")
 
 class MeetingAssistantWindow(QMainWindow):
     def __init__(self):
@@ -62,7 +79,8 @@ class MeetingAssistantWindow(QMainWindow):
         self.recorder = AudioRecorder()
         self.file_manager = FileManager()
         self.db = MeetingDatabase()
-        self.worker_thread = None
+        self.transcription_worker = None
+        self.summarization_worker = None
         self.current_transcript = ""
         self.current_summary = ""
 
@@ -95,6 +113,14 @@ class MeetingAssistantWindow(QMainWindow):
         self.open_file_button.setMinimumWidth(120)
         self.open_file_button.clicked.connect(self.open_audio_file)
         top_controls_layout.addWidget(self.open_file_button)
+
+        self.generate_summary_button = QPushButton("Generate Summary")
+        self.generate_summary_button.setMinimumHeight(40)
+        self.generate_summary_button.setMinimumWidth(140)
+        self.generate_summary_button.clicked.connect(self.generate_summary)
+        self.generate_summary_button.setEnabled(False)
+        self.generate_summary_button.setStyleSheet("background-color: #dc3545; color: white;")
+        top_controls_layout.addWidget(self.generate_summary_button)
 
         self.save_summary_button = QPushButton("Save Summary")
         self.save_summary_button.setMinimumHeight(40)
@@ -213,6 +239,7 @@ class MeetingAssistantWindow(QMainWindow):
                 self.summary_text.clear()
                 self.save_summary_button.setEnabled(False)
                 self.clean_transcript_button.setEnabled(False)
+                self.generate_summary_button.setEnabled(False)
             else:
                 QMessageBox.warning(self, "Error", "Failed to start recording")
         else:
@@ -230,37 +257,75 @@ class MeetingAssistantWindow(QMainWindow):
                 self.status_bar.showMessage("Recording stopped")
 
     def start_processing(self, audio_file):
-        """Start processing audio in worker thread"""
+        """Start transcription in worker thread"""
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indeterminate progress
 
-        self.worker_thread = WorkerThread(audio_file)
-        self.worker_thread.finished.connect(self.on_processing_finished)
-        self.worker_thread.error.connect(self.on_processing_error)
-        self.worker_thread.progress.connect(self.on_progress_update)
-        self.worker_thread.start()
+        self.transcription_worker = TranscriptionWorkerThread(audio_file)
+        self.transcription_worker.finished.connect(self.on_transcription_finished)
+        self.transcription_worker.error.connect(self.on_transcription_error)
+        self.transcription_worker.progress.connect(self.on_progress_update)
+        self.transcription_worker.start()
 
-    def on_processing_finished(self, transcript, summary):
-        """Handle completed processing"""
+    def on_transcription_finished(self, transcript):
+        """Handle completed transcription"""
         self.current_transcript = transcript
-        self.current_summary = summary
-
         self.transcript_text.setText(transcript)
-        self.summary_text.setText(summary)
 
         self.progress_bar.setVisible(False)
         self.status_bar.showMessage("Recording stopped")
         self.transcription_status.setText(f"Transcribed with Whisper-{Config.WHISPER_MODEL} (local)")
 
-        self.save_summary_button.setEnabled(True)
+        # Enable buttons after transcription is complete
         self.clean_transcript_button.setEnabled(True)
+        self.generate_summary_button.setEnabled(True)
 
-    def on_processing_error(self, error_message):
-        """Handle processing errors"""
+        # Clear any existing summary
+        self.summary_text.clear()
+        self.current_summary = ""
+        self.save_summary_button.setEnabled(False)
+
+    def on_transcription_error(self, error_message):
+        """Handle transcription errors"""
         self.progress_bar.setVisible(False)
         self.status_bar.showMessage("Recording stopped")
         self.transcription_status.setText("Error")
-        QMessageBox.critical(self, "Processing Error", error_message)
+        QMessageBox.critical(self, "Transcription Error", error_message)
+
+    def generate_summary(self):
+        """Generate summary from current transcript"""
+        if not self.current_transcript:
+            QMessageBox.warning(self, "Warning", "No transcript available to summarize")
+            return
+
+        self.progress_bar.setVisible(True)
+        self.progress_bar.setRange(0, 0)  # Indeterminate progress
+        self.generate_summary_button.setEnabled(False)
+
+        self.summarization_worker = SummarizationWorkerThread(self.current_transcript)
+        self.summarization_worker.finished.connect(self.on_summarization_finished)
+        self.summarization_worker.error.connect(self.on_summarization_error)
+        self.summarization_worker.progress.connect(self.on_progress_update)
+        self.summarization_worker.start()
+
+    def on_summarization_finished(self, summary):
+        """Handle completed summarization"""
+        self.current_summary = summary
+        self.summary_text.setText(summary)
+
+        self.progress_bar.setVisible(False)
+        self.transcription_status.setText(f"Summary generated with {Config.OPENAI_MODEL}")
+
+        # Enable buttons after summarization is complete
+        self.generate_summary_button.setEnabled(True)
+        self.save_summary_button.setEnabled(True)
+
+    def on_summarization_error(self, error_message):
+        """Handle summarization errors"""
+        self.progress_bar.setVisible(False)
+        self.transcription_status.setText("Summary generation failed")
+        self.generate_summary_button.setEnabled(True)
+        QMessageBox.critical(self, "Summarization Error", error_message)
 
     def on_progress_update(self, message):
         """Update progress status"""
@@ -313,14 +378,10 @@ class MeetingAssistantWindow(QMainWindow):
         self.transcript_text.setText(cleaned_text)
         self.current_transcript = cleaned_text
 
-        # Regenerate summary with cleaned transcript
-        if cleaned_text:
-            from summarization.summarizer import MeetingSummarizer
-            summarizer = MeetingSummarizer()
-            summary, _ = summarizer.summarize_transcript(cleaned_text)
-            if summary:
-                self.current_summary = summary
-                self.summary_text.setText(summary)
+        # Clear summary since transcript changed - user needs to regenerate manually
+        self.summary_text.clear()
+        self.current_summary = ""
+        self.save_summary_button.setEnabled(False)
 
     def closeEvent(self, event):
         """Handle application close event"""
@@ -328,8 +389,12 @@ class MeetingAssistantWindow(QMainWindow):
             self.recorder.stop_recording()
         self.recorder.cleanup()
 
-        if self.worker_thread and self.worker_thread.isRunning():
-            self.worker_thread.quit()
-            self.worker_thread.wait()
+        if self.transcription_worker and self.transcription_worker.isRunning():
+            self.transcription_worker.quit()
+            self.transcription_worker.wait()
+
+        if self.summarization_worker and self.summarization_worker.isRunning():
+            self.summarization_worker.quit()
+            self.summarization_worker.wait()
 
         event.accept()
