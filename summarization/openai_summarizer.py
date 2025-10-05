@@ -11,14 +11,16 @@ class OpenAISummarizer:
         # Set up OpenAI client (modern API)
         self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
-    def summarize_transcript(self, transcript):
+    def summarize_transcript(self, transcript, custom_prompt=None):
         """Generate meeting summary from transcript using OpenAI"""
         if not transcript:
             return None, "No transcript provided"
 
         try:
             print("Generating summary with OpenAI...")
-            prompt = MEETING_SUMMARY_PROMPT.format(transcript=transcript)
+            # Use custom prompt if provided, otherwise use default
+            prompt_template = custom_prompt if custom_prompt else MEETING_SUMMARY_PROMPT
+            prompt = prompt_template.format(transcript=transcript)
 
             # Use the modern OpenAI API format
             response = self.client.chat.completions.create(

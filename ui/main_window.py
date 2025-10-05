@@ -2,7 +2,7 @@ import sys
 import os
 from PyQt5.QtWidgets import (QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
                              QPushButton, QTextEdit, QLabel, QFileDialog,
-                             QMessageBox, QProgressBar, QSplitter, QFrame, QStatusBar)
+                             QMessageBox, QProgressBar, QSplitter, QFrame, QStatusBar, QComboBox)
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtGui import QFont, QPalette
 
@@ -53,16 +53,17 @@ class SummarizationWorkerThread(QThread):
     error = pyqtSignal(str)
     progress = pyqtSignal(str)
 
-    def __init__(self, transcript):
+    def __init__(self, transcript, prompt_template):
         super().__init__()
         self.transcript = transcript
+        self.prompt_template = prompt_template
 
     def run(self):
         try:
             # Generate summary
             self.progress.emit("Generating summary...")
             summarizer = MeetingSummarizer()
-            summary, summary_file = summarizer.summarize_transcript(self.transcript)
+            summary, summary_file = summarizer.summarize_transcript(self.transcript, self.prompt_template)
 
             if not summary:
                 self.error.emit("Failed to generate summary")
@@ -108,7 +109,7 @@ class MeetingAssistantWindow(QMainWindow):
         self.record_button.clicked.connect(self.toggle_recording)
         top_controls_layout.addWidget(self.record_button)
 
-        self.open_file_button = QPushButton("Open File")
+        self.open_file_button = QPushButton("Open Audio File")
         self.open_file_button.setMinimumHeight(40)
         self.open_file_button.setMinimumWidth(120)
         self.open_file_button.clicked.connect(self.open_audio_file)
@@ -129,8 +130,52 @@ class MeetingAssistantWindow(QMainWindow):
         self.save_summary_button.setEnabled(False)
         top_controls_layout.addWidget(self.save_summary_button)
 
-        # Add stretch to push buttons to the left
+        # Add stretch to push buttons to the left and dropdown to the right
         top_controls_layout.addStretch()
+
+        # Prompt selector dropdown in top right corner
+        self.prompt_selector = QComboBox()
+        self.prompt_selector.addItems(list(Config.SUMMARIZATION_PROMPTS.keys()))
+        self.prompt_selector.setMinimumHeight(40)
+        self.prompt_selector.setMinimumWidth(200)
+        self.prompt_selector.setStyleSheet("""
+            QComboBox {
+                color: white;
+                background-color: #444444;
+                border: 1px solid #666666;
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 12pt;
+            }
+            QComboBox::drop-down {
+                border: none;
+                background-color: transparent;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid white;
+                margin-right: 5px;
+            }
+            QComboBox QAbstractItemView {
+                color: white;
+                background-color: #444444;
+                border: 1px solid #666666;
+                border-radius: 8px;
+                selection-background-color: #555555;
+                padding: 4px;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 12px;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #555555;
+            }
+        """)
+        top_controls_layout.addWidget(self.prompt_selector)
 
         main_layout.addLayout(top_controls_layout)
 
@@ -298,11 +343,15 @@ class MeetingAssistantWindow(QMainWindow):
             QMessageBox.warning(self, "Warning", "No transcript available to summarize")
             return
 
+        # Get selected prompt
+        selected_prompt_name = self.prompt_selector.currentText()
+        selected_prompt = Config.SUMMARIZATION_PROMPTS[selected_prompt_name]
+
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indeterminate progress
         self.generate_summary_button.setEnabled(False)
 
-        self.summarization_worker = SummarizationWorkerThread(self.current_transcript)
+        self.summarization_worker = SummarizationWorkerThread(self.current_transcript, selected_prompt)
         self.summarization_worker.finished.connect(self.on_summarization_finished)
         self.summarization_worker.error.connect(self.on_summarization_error)
         self.summarization_worker.progress.connect(self.on_progress_update)
