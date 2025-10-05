@@ -21,7 +21,7 @@ class TranscriptionWorkerThread(QThread):
     """Worker thread for processing audio transcription only"""
     finished = pyqtSignal(str)  # transcript only
     error = pyqtSignal(str)
-    progress = pyqtSignal(str)
+    progress = pyqtSignal(str, int)  # message, percentage
 
     def __init__(self, audio_file):
         super().__init__()
@@ -29,19 +29,24 @@ class TranscriptionWorkerThread(QThread):
 
     def run(self):
         try:
-            # Transcribe audio
-            self.progress.emit("Transcribing audio...")
+            # Transcribe audio with progress callback
             transcriber = WhisperTranscriber()
-            transcript, transcript_file = transcriber.transcribe_audio(self.audio_file)
+
+            def progress_callback(message, percentage):
+                self.progress.emit(message, percentage)
+
+            transcript, transcript_file = transcriber.transcribe_audio(self.audio_file, progress_callback)
 
             if not transcript:
                 self.error.emit("Failed to transcribe audio")
                 return
 
             # Clean transcript
+            self.progress.emit("Cleaning transcript...", 98)
             cleaner = TranscriptCleaner()
             cleaned_transcript = cleaner.clean_transcript(transcript)
 
+            self.progress.emit("Complete!", 100)
             self.finished.emit(cleaned_transcript)
 
         except Exception as e:
@@ -232,9 +237,16 @@ class MeetingAssistantWindow(QMainWindow):
         self.status_bar.showMessage("Recording stopped")
         self.setStatusBar(self.status_bar)
 
-        # Add transcription status to status bar
+        # Add transcription status to status bar (left side)
         self.transcription_status = QLabel("Ready")
         self.status_bar.addPermanentWidget(self.transcription_status)
+
+        # Add percentage display to status bar (right side)
+        self.percentage_label = QLabel("")
+        self.percentage_label.setMinimumWidth(80)
+        self.percentage_label.setAlignment(Qt.AlignRight)
+        self.percentage_label.setStyleSheet("font-weight: bold; color: #007ACC;")
+        self.status_bar.addPermanentWidget(self.percentage_label)
 
     def setup_style(self):
         """Setup application styling"""
@@ -282,6 +294,7 @@ class MeetingAssistantWindow(QMainWindow):
                 self.status_bar.showMessage("Recording...")
                 self.transcript_text.clear()
                 self.summary_text.clear()
+                self.percentage_label.setText("")  # Clear percentage
                 self.save_summary_button.setEnabled(False)
                 self.clean_transcript_button.setEnabled(False)
                 self.generate_summary_button.setEnabled(False)
@@ -304,7 +317,7 @@ class MeetingAssistantWindow(QMainWindow):
     def start_processing(self, audio_file):
         """Start transcription in worker thread"""
         self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # Indeterminate progress
+        self.progress_bar.setRange(0, 100)  # Percentage progress
 
         self.transcription_worker = TranscriptionWorkerThread(audio_file)
         self.transcription_worker.finished.connect(self.on_transcription_finished)
@@ -318,6 +331,7 @@ class MeetingAssistantWindow(QMainWindow):
         self.transcript_text.setText(transcript)
 
         self.progress_bar.setVisible(False)
+        self.percentage_label.setText("")  # Clear percentage
         self.status_bar.showMessage("Recording stopped")
         self.transcription_status.setText(f"Transcribed with Whisper-{Config.WHISPER_MODEL} (local)")
 
@@ -333,6 +347,7 @@ class MeetingAssistantWindow(QMainWindow):
     def on_transcription_error(self, error_message):
         """Handle transcription errors"""
         self.progress_bar.setVisible(False)
+        self.percentage_label.setText("")  # Clear percentage
         self.status_bar.showMessage("Recording stopped")
         self.transcription_status.setText("Error")
         QMessageBox.critical(self, "Transcription Error", error_message)
@@ -376,9 +391,12 @@ class MeetingAssistantWindow(QMainWindow):
         self.generate_summary_button.setEnabled(True)
         QMessageBox.critical(self, "Summarization Error", error_message)
 
-    def on_progress_update(self, message):
-        """Update progress status"""
+    def on_progress_update(self, message, percentage=None):
+        """Update progress status and percentage"""
         self.transcription_status.setText(message)
+        if percentage is not None:
+            self.progress_bar.setValue(percentage)
+            self.percentage_label.setText(f"{percentage}%")
 
     def open_audio_file(self):
         """Open and process an existing audio file"""
