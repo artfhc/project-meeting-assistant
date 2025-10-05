@@ -140,7 +140,8 @@ class MeetingAssistantWindow(QMainWindow):
 
         # Prompt selector dropdown in top right corner
         self.prompt_selector = QComboBox()
-        self.prompt_selector.addItems(list(Config.SUMMARIZATION_PROMPTS.keys()))
+        config_instance = Config()
+        self.prompt_selector.addItems(list(config_instance.SUMMARIZATION_PROMPTS.keys()))
         self.prompt_selector.setMinimumHeight(40)
         self.prompt_selector.setMinimumWidth(200)
         self.prompt_selector.setStyleSheet("""
@@ -360,7 +361,8 @@ class MeetingAssistantWindow(QMainWindow):
 
         # Get selected prompt
         selected_prompt_name = self.prompt_selector.currentText()
-        selected_prompt = Config.SUMMARIZATION_PROMPTS[selected_prompt_name]
+        config_instance = Config()
+        selected_prompt = config_instance.SUMMARIZATION_PROMPTS[selected_prompt_name]
 
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indeterminate progress
