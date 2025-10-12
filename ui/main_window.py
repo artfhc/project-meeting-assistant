@@ -41,16 +41,29 @@ class TranscriptionWorkerThread(QThread):
                 self.error.emit("Failed to transcribe audio")
                 return
 
-            # Clean transcript
-            self.progress.emit("Cleaning transcript...", 98)
-            cleaner = TranscriptCleaner()
-            cleaned_transcript = cleaner.clean_transcript(transcript)
+            # Clean transcript based on settings and content
+            if '[Speaker_' in transcript:
+                # Skip cleaning for speaker-formatted transcripts to preserve formatting
+                self.progress.emit("Preserving speaker formatting...", 98)
+                cleaned_transcript = transcript
+            elif Config.ENABLE_TRANSCRIPT_CLEANING:
+                # Clean transcript if enabled in settings
+                self.progress.emit("Cleaning transcript...", 98)
+                cleaner = TranscriptCleaner()
+                cleaned_transcript = cleaner.clean_transcript(transcript)
+            else:
+                # Skip cleaning if disabled in settings
+                self.progress.emit("Skipping transcript cleaning...", 98)
+                cleaned_transcript = transcript
 
             self.progress.emit("Complete!", 100)
             self.finished.emit(cleaned_transcript)
 
         except Exception as e:
-            self.error.emit(f"Error processing audio: {str(e)}")
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"TranscriptionWorkerThread Error: {error_details}")
+            self.error.emit(f"Error processing audio: {str(e)}\n\nDetails: {error_details}")
 
 class SummarizationWorkerThread(QThread):
     """Worker thread for generating summary from transcript"""
@@ -203,6 +216,7 @@ class MeetingAssistantWindow(QMainWindow):
 
         self.transcript_text = QTextEdit()
         self.transcript_text.setPlaceholderText("Transcript will appear here after recording...")
+        self.transcript_text.setLineWrapMode(QTextEdit.WidgetWidth)
         transcript_layout.addWidget(self.transcript_text)
 
         # Clean Transcript button
@@ -329,7 +343,20 @@ class MeetingAssistantWindow(QMainWindow):
     def on_transcription_finished(self, transcript):
         """Handle completed transcription"""
         self.current_transcript = transcript
-        self.transcript_text.setText(transcript)
+
+        # Debug: Print transcript to console to check formatting
+        print("Setting transcript with formatting:")
+        print(repr(transcript[:200]) + "..." if len(transcript) > 200 else repr(transcript))
+
+        # Try to ensure line breaks are preserved
+        if '\n' in transcript:
+            print("✅ Line breaks found in transcript")
+            # Convert \n to HTML line breaks for better display
+            html_transcript = transcript.replace('\n', '<br>')
+            self.transcript_text.setHtml(html_transcript)
+        else:
+            print("❌ No line breaks found in transcript")
+            self.transcript_text.setPlainText(transcript)
 
         self.progress_bar.setVisible(False)
         self.percentage_label.setText("")  # Clear percentage
@@ -351,6 +378,12 @@ class MeetingAssistantWindow(QMainWindow):
         self.percentage_label.setText("")  # Clear percentage
         self.status_bar.showMessage("Recording stopped")
         self.transcription_status.setText("Error")
+
+        # Ensure error message is not None or empty
+        if not error_message or error_message.strip() == "":
+            error_message = "An unknown error occurred during transcription. Check the console for details."
+
+        print(f"Transcription Error: {error_message}")  # Debug output
         QMessageBox.critical(self, "Transcription Error", error_message)
 
     def generate_summary(self):
@@ -444,7 +477,7 @@ class MeetingAssistantWindow(QMainWindow):
         cleaner = TranscriptCleaner()
         cleaned_text = cleaner.clean_transcript(self.current_transcript)
 
-        self.transcript_text.setText(cleaned_text)
+        self.transcript_text.setPlainText(cleaned_text)
         self.current_transcript = cleaned_text
 
         # Clear summary since transcript changed - user needs to regenerate manually

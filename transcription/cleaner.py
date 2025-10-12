@@ -7,8 +7,12 @@ class TranscriptCleaner:
         if not text:
             return ""
 
-        # Remove excessive whitespace
+        # Remove excessive whitespace but preserve newlines
+        # First, protect newlines by replacing them with a placeholder
+        text = text.replace('\n', '###NEWLINE###')
         text = re.sub(r'\s+', ' ', text)
+        # Restore newlines
+        text = text.replace('###NEWLINE###', '\n')
 
         # Remove common filler words (optional)
         filler_words = ['um', 'uh', 'er', 'ah', 'like', 'you know']

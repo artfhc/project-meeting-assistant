@@ -26,6 +26,12 @@ class Config:
     # OpenAI Settings
     OPENAI_MODEL = 'gpt-4o-mini'  # or 'gpt-4' for better quality
 
+    # Speaker Diarization Settings
+    ENABLE_SPEAKER_DIARIZATION = os.getenv('ENABLE_SPEAKER_DIARIZATION', 'false').lower() == 'true'
+
+    # Transcript Cleaning Settings
+    ENABLE_TRANSCRIPT_CLEANING = os.getenv('ENABLE_TRANSCRIPT_CLEANING', 'true').lower() == 'true'
+
     # Summarization Prompts (loaded from YAML)
     _summarization_prompts = None
 
