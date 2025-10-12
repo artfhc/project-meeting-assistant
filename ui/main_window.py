@@ -2,7 +2,7 @@ import sys
 import os
 from PyQt5.QtWidgets import (QMainWindow, QVBoxLayout, QHBoxLayout, QWidget,
                              QPushButton, QTextEdit, QLabel, QFileDialog,
-                             QMessageBox, QProgressBar, QSplitter, QFrame, QStatusBar, QComboBox)
+                             QMessageBox, QProgressBar, QSplitter, QFrame, QStatusBar, QComboBox, QApplication)
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtGui import QFont, QPalette
 
@@ -254,6 +254,8 @@ class MeetingAssistantWindow(QMainWindow):
 
         # Add transcription status to status bar (left side)
         self.transcription_status = QLabel("Ready")
+        self.transcription_status.setMinimumWidth(400)  # Increased from 200 to 400
+        self.transcription_status.setStyleSheet("color: white; font-weight: bold;")
         self.status_bar.addPermanentWidget(self.transcription_status)
 
         # Add percentage display to status bar (right side)
@@ -333,6 +335,8 @@ class MeetingAssistantWindow(QMainWindow):
         """Start transcription in worker thread"""
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 100)  # Percentage progress
+        self.status_bar.clearMessage()  # Clear any existing status message
+        self.transcription_status.setText("Starting transcription...")
 
         self.transcription_worker = TranscriptionWorkerThread(audio_file)
         self.transcription_worker.finished.connect(self.on_transcription_finished)
@@ -428,10 +432,17 @@ class MeetingAssistantWindow(QMainWindow):
 
     def on_progress_update(self, message, percentage=None):
         """Update progress status and percentage"""
+        print(f"🔄 Progress update: {message} ({percentage}%)")  # Debug output
+        print(f"   Setting transcription_status to: '{message}'")  # More debug
         self.transcription_status.setText(message)
+        self.transcription_status.repaint()  # Force repaint
+        self.status_bar.clearMessage()  # Clear center status message
         if percentage is not None:
             self.progress_bar.setValue(percentage)
             self.percentage_label.setText(f"{percentage}%")
+
+        # Force UI update to show progress in real-time
+        QApplication.processEvents()
 
     def open_audio_file(self):
         """Open and process an existing audio file"""
