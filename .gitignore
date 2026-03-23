@@ -216,3 +216,8 @@ __marimo__/
 
 # Meeting Assistant Output Files
 outputs/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/package-lock.json
+frontend/dist/
