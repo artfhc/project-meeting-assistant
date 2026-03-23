@@ -22,6 +22,7 @@ from typing import Callable
 from transcription.whisper_client import WhisperTranscriber
 from transcription.cleaner import TranscriptCleaner
 from summarization.openai_summarizer import OpenAISummarizer
+from config.settings import Config
 
 from backend.db import get_db, update_meeting
 from backend import ws_manager as _ws_module
@@ -164,11 +165,26 @@ async def run_summarization_job(
         }
     )
 
-    # ----- 3. Run OpenAI call in thread pool -----
+    # ----- 3. Resolve prompt_key → prompt text -----
+    # summarize_transcript expects the full prompt template (with {transcript}
+    # placeholder), not a key string.  Look the key up in prompts.yaml and pass
+    # None when the key is absent so the summarizer falls back to its built-in
+    # default prompt.
+    custom_prompt: str | None = None
+    if prompt_key:
+        prompts = Config.get_summarization_prompts()
+        custom_prompt = prompts.get(prompt_key)  # None when key not found
+        if custom_prompt is None:
+            logger.warning(
+                "prompt_key %r not found in prompts.yaml — using default prompt",
+                prompt_key,
+            )
+
+    # ----- 4. Run OpenAI call in thread pool -----
     try:
         summary_text, summary_filepath = await loop.run_in_executor(
             None,
-            lambda: summarizer.summarize_transcript(transcript, prompt_key),  # type: ignore[union-attr]
+            lambda: summarizer.summarize_transcript(transcript, custom_prompt),  # type: ignore[union-attr]
         )
     except Exception as exc:
         logger.exception("Summarization failed for meeting %s", meeting_id)
@@ -181,7 +197,7 @@ async def run_summarization_job(
         await _handle_job_error(job_id, meeting_id, error_msg)
         return
 
-    # ----- 4. Persist results -----
+    # ----- 5. Persist results -----
     async with get_db() as conn:
         await update_meeting(
             conn,
@@ -191,7 +207,7 @@ async def run_summarization_job(
             status="done",
         )
 
-    # ----- 5. Broadcast completion -----
+    # ----- 6. Broadcast completion -----
     await _ws_module.manager.broadcast(
         {
             "type": "job_progress",

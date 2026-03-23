@@ -57,7 +57,23 @@ async def get_settings() -> SettingsModel:
 
 @router.put("", response_model=SettingsModel)
 async def put_settings(body: SettingsModel) -> SettingsModel:
-    """Persist all settings fields to the database."""
+    """Persist all settings fields to the database.
+
+    After saving, live-patches ``Config`` for values that take effect
+    immediately without a restart:
+      - ``OPENAI_API_KEY`` — used by every subsequent summarization call.
+      - ``OPENAI_MODEL``   — used by every subsequent summarization call.
+
+    ``WHISPER_MODEL`` is **not** hot-reloaded here because ``WhisperTranscriber``
+    loads the model binary at construction time; a backend restart is required
+    for that change to take effect.
+
+    ``output_dir`` is also not hot-reloaded mid-session to avoid a situation
+    where the first half of a recording goes to one directory and the summary
+    to another.  A restart picks it up cleanly.
+    """
+    import os
+
     fields: dict[str, str] = {
         "openai_api_key": body.openai_api_key,
         "whisper_model": body.whisper_model,
@@ -69,5 +85,30 @@ async def put_settings(body: SettingsModel) -> SettingsModel:
     for key, value in fields.items():
         await set_setting(key, value)
 
-    logger.info("Settings updated")
+    # Live-patch Config for values that are safe to change at runtime.
+    if body.openai_api_key:
+        Config.OPENAI_API_KEY = body.openai_api_key
+
+    # Apply output_dir change and recreate directories so that the new paths
+    # exist before the next recording/transcription/summarization job runs.
+    if body.output_dir:
+        Config.OUTPUT_DIR = body.output_dir
+        Config.AUDIO_DIR = os.path.join(body.output_dir, "audio")
+        Config.TRANSCRIPT_DIR = os.path.join(body.output_dir, "transcripts")
+        Config.SUMMARY_DIR = os.path.join(body.output_dir, "summaries")
+
+    Config.create_directories()
+
+    logger.info("Settings updated and Config patched")
     return body
+
+
+@router.get("/prompts")
+async def list_prompts() -> list[str]:
+    """Return the available prompt template keys from ``config/prompts.yaml``.
+
+    The frontend uses this list to populate the *Default Prompt Key* dropdown
+    so users can only select keys that actually exist.
+    """
+    prompts = Config.get_summarization_prompts()
+    return list(prompts.keys())

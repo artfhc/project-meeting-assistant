@@ -20,7 +20,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend import jobs
-from backend.db import init_db
+from backend.db import get_all_settings, init_db
 from backend.routers import (
     devices,
     meetings,
@@ -53,6 +53,34 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # --- Startup ---
     logger.info("Initialising database…")
     await init_db()
+
+    # Patch Config from DB settings before any module reads it.
+    # Modules (WhisperTranscriber, OpenAISummarizer) capture Config attributes at
+    # construction time, so this must happen first.
+    logger.info("Applying user settings to Config…")
+    from config.settings import Config
+
+    db_settings = await get_all_settings()
+
+    # API key — DB value wins over the env-var default when present.
+    if db_settings.get("openai_api_key"):
+        Config.OPENAI_API_KEY = db_settings["openai_api_key"]
+
+    # Whisper model — fall back to the class default ('base') when absent.
+    Config.WHISPER_MODEL = db_settings.get("whisper_model") or Config.WHISPER_MODEL
+
+    # Output directories — only override when the user has explicitly set a path.
+    output_dir = db_settings.get("output_dir")
+    if output_dir:
+        import os
+
+        Config.OUTPUT_DIR = output_dir
+        Config.AUDIO_DIR = os.path.join(output_dir, "audio")
+        Config.TRANSCRIPT_DIR = os.path.join(output_dir, "transcripts")
+        Config.SUMMARY_DIR = os.path.join(output_dir, "summaries")
+
+    Config.create_directories()
+    logger.info("Config patched — OUTPUT_DIR=%s  WHISPER_MODEL=%s", Config.OUTPUT_DIR, Config.WHISPER_MODEL)
 
     logger.info("Loading Whisper model (this may take a moment)…")
     try:

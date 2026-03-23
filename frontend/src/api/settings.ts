@@ -12,3 +12,7 @@ export function saveSettings(settings: Settings): Promise<Settings> {
     body: JSON.stringify(settings),
   })
 }
+
+export function listPromptKeys(): Promise<string[]> {
+  return apiFetch<string[]>('/settings/prompts')
+}

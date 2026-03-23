@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { saveSettings } from '../../api/settings'
+import { listPromptKeys, saveSettings } from '../../api/settings'
 import type { Settings } from '../../types'
 
 // ---------------------------------------------------------------------------
@@ -62,6 +62,7 @@ export default function SettingsPage() {
 
   const [form, setForm] = useState<Settings>(storeSettings ?? DEFAULT_SETTINGS)
   const [isSaving, setIsSaving] = useState(false)
+  const [promptKeys, setPromptKeys] = useState<string[]>([])
 
   // Sync form when the store gets populated externally (e.g. after the App's
   // initial data load completes after backend becomes ready)
@@ -70,6 +71,15 @@ export default function SettingsPage() {
       setForm(storeSettings)
     }
   }, [storeSettings])
+
+  // Load available prompt template keys from the backend on mount.
+  useEffect(() => {
+    listPromptKeys()
+      .then(setPromptKeys)
+      .catch((err) => {
+        console.error('[SettingsPage] Failed to load prompt keys:', err)
+      })
+  }, [])
 
   function handleChange<K extends keyof Settings>(key: K, value: Settings[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -178,18 +188,23 @@ export default function SettingsPage() {
 
           {/* Default Prompt Key */}
           <Field label="Default Prompt Key" htmlFor="default_prompt_key">
-            <input
+            <select
               id="default_prompt_key"
-              type="text"
               value={form.default_prompt_key}
-              onChange={(e) =>
-                handleChange('default_prompt_key', e.target.value)
-              }
-              placeholder="default"
-              className={inputClass}
-            />
+              onChange={(e) => handleChange('default_prompt_key', e.target.value)}
+              className={selectClass}
+            >
+              {/* Empty option lets the user choose "no override" (backend uses its built-in default). */}
+              <option value="">— use built-in default —</option>
+              {promptKeys.map((key) => (
+                <option key={key} value={key}>
+                  {key}
+                </option>
+              ))}
+            </select>
             <p className="text-xs text-gray-600">
-              Must match a key defined in prompts.yaml.
+              Template keys are loaded from{' '}
+              <code className="font-mono">config/prompts.yaml</code>.
             </p>
           </Field>
 
