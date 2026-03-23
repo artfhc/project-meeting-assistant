@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import MainLayout from './components/layout/MainLayout'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useRecordingStore } from './stores/recordingStore'
+import { useMeetingStore } from './stores/meetingStore'
+import { useSettingsStore } from './stores/settingsStore'
+import { listMeetings } from './api/meetings'
+import { getSettings } from './api/settings'
 
 // ---------------------------------------------------------------------------
 // Extend window with the Electron context bridge API
@@ -83,9 +87,25 @@ function AppInner() {
 
 type AppState = 'loading' | 'ready' | 'error'
 
+async function loadInitialData(
+  setMeetings: ReturnType<typeof useMeetingStore.getState>['setMeetings'],
+  setSettings: ReturnType<typeof useSettingsStore.getState>['setSettings'],
+) {
+  try {
+    const [meetings, settings] = await Promise.all([listMeetings(), getSettings()])
+    setMeetings(meetings)
+    setSettings(settings)
+  } catch (err) {
+    console.error('[App] Failed to load initial data:', err)
+  }
+}
+
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading')
   const [errorMessage, setErrorMessage] = useState('')
+
+  const setMeetings = useMeetingStore((s) => s.setMeetings)
+  const setSettings = useSettingsStore((s) => s.setSettings)
 
   useEffect(() => {
     // Apply dark mode class unconditionally — settings store can toggle later
@@ -94,11 +114,13 @@ export default function App() {
     // If running outside Electron (e.g. plain Vite dev server), skip IPC
     if (!window.electronAPI) {
       setAppState('ready')
+      void loadInitialData(setMeetings, setSettings)
       return
     }
 
     const unsubReady = window.electronAPI.onBackendReady(() => {
       setAppState('ready')
+      void loadInitialData(setMeetings, setSettings)
     })
 
     const unsubError = window.electronAPI.onBackendError((msg) => {
@@ -110,7 +132,7 @@ export default function App() {
       unsubReady()
       unsubError()
     }
-  }, [])
+  }, [setMeetings, setSettings])
 
   if (appState === 'loading') return <LoadingScreen />
   if (appState === 'error') return <ErrorScreen message={errorMessage} />

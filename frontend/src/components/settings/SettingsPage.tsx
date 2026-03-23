@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { saveSettings } from '../../api/settings'
 import type { Settings } from '../../types'
 
 // ---------------------------------------------------------------------------
@@ -57,11 +58,13 @@ const DEFAULT_SETTINGS: Settings = {
 
 export default function SettingsPage() {
   const storeSettings = useSettingsStore((s) => s.settings)
-  const setSettings = useSettingsStore((s) => s.setSettings)
+  const setStoreSettings = useSettingsStore((s) => s.setSettings)
 
   const [form, setForm] = useState<Settings>(storeSettings ?? DEFAULT_SETTINGS)
+  const [isSaving, setIsSaving] = useState(false)
 
-  // Sync if the store gets populated externally (e.g. after an API load)
+  // Sync form when the store gets populated externally (e.g. after the App's
+  // initial data load completes after backend becomes ready)
   useEffect(() => {
     if (storeSettings) {
       setForm(storeSettings)
@@ -72,9 +75,17 @@ export default function SettingsPage() {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSettings(form)
+    setIsSaving(true)
+    try {
+      const saved = await saveSettings(form)
+      setStoreSettings(saved)
+    } catch (err) {
+      console.error('[SettingsPage] Failed to save settings:', err)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   async function handleChooseOutputDir() {
@@ -89,7 +100,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-xl px-6 py-8">
         <h2 className="mb-6 text-lg font-semibold text-gray-100">Settings</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
           {/* OpenAI API Key */}
           <Field label="OpenAI API Key" htmlFor="openai_api_key">
             <input
@@ -157,7 +168,7 @@ export default function SettingsPage() {
               />
               <button
                 type="button"
-                onClick={handleChooseOutputDir}
+                onClick={() => void handleChooseOutputDir()}
                 className="shrink-0 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700"
               >
                 Browse
@@ -201,9 +212,10 @@ export default function SettingsPage() {
           <div className="pt-2">
             <button
               type="submit"
-              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-950"
+              disabled={isSaving}
+              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-950 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Save Settings
+              {isSaving ? 'Saving...' : 'Save Settings'}
             </button>
           </div>
         </form>

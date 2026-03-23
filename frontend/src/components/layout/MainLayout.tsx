@@ -11,9 +11,6 @@ export type ActiveView = 'new' | 'history' | 'settings'
 export default function MainLayout() {
   const [activeView, setActiveView] = useState<ActiveView>('new')
 
-  // Placeholder device state — Phase 4 will populate this from GET /audio-devices
-  const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(-1)
-
   function renderContent() {
     switch (activeView) {
       case 'new':
@@ -31,12 +28,8 @@ export default function MainLayout() {
 
   return (
     <div className="flex h-full flex-col bg-gray-950 text-gray-100">
-      {/* Top bar */}
-      <TopBar
-        audioDevices={[]}
-        selectedDeviceIndex={selectedDeviceIndex}
-        onDeviceChange={setSelectedDeviceIndex}
-      />
+      {/* Top bar — manages its own device state and recording API calls */}
+      <TopBar />
 
       {/* Body: sidebar + main content panels */}
       <div className="flex min-h-0 flex-1">
