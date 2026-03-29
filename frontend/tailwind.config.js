@@ -1,48 +1,53 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  // Restrict Tailwind's class scanning to source files only — avoids false
-  // positives from node_modules and keeps the production CSS bundle lean.
   content: [
     './index.html',
     './src/**/*.{ts,tsx}',
   ],
 
-  // Enable class-based dark mode so the renderer can toggle it by adding/
-  // removing the 'dark' class on <html>. Zustand settings store drives this
-  // in Phase 3.
   darkMode: 'class',
 
   theme: {
     extend: {
-      // Design tokens live here — Phase 7 will flesh these out.
       colors: {
-        brand: {
-          50:  '#f0f9ff',
-          100: '#e0f2fe',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          900: '#0c4a6e',
+        // Warm amber accent palette — replaces the old `brand` sky-blue tokens
+        amber: {
+          400: '#fbbf24',
+          500: '#f59e0b',
+          600: '#d97706',
+        },
+        // Deep surface backgrounds
+        surface: {
+          base:  '#0d0d0f',
+          raised: '#111114',
+          overlay: '#16161a',
+          muted: '#1c1c21',
+        },
+        // Warm border tones
+        border: {
+          subtle: '#1f1f25',
+          warm:   '#27272f',
+          muted:  '#2e2e38',
         },
       },
       fontFamily: {
-        sans: [
-          // System font stack — avoids a web font request in an offline-capable app
-          '-apple-system',
-          'BlinkMacSystemFont',
-          '"Segoe UI"',
-          'Roboto',
-          '"Helvetica Neue"',
-          'Arial',
-          'sans-serif',
-        ],
-        mono: [
-          '"SF Mono"',
-          '"Fira Code"',
-          '"Cascadia Code"',
-          'Menlo',
-          'monospace',
-        ],
+        // DM Mono everywhere — this is a tool, not a consumer app
+        sans: ['"DM Mono"', 'monospace'],
+        mono: ['"DM Mono"', 'monospace'],
+      },
+      keyframes: {
+        'amber-pulse': {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(245, 158, 11, 0)' },
+          '50%':       { boxShadow: '0 0 0 8px rgba(245, 158, 11, 0.15)' },
+        },
+        'dot-pulse': {
+          '0%, 100%': { opacity: '1' },
+          '50%':      { opacity: '0.3' },
+        },
+      },
+      animation: {
+        'amber-pulse': 'amber-pulse 2s ease-in-out infinite',
+        'dot-pulse':   'dot-pulse 1.4s ease-in-out infinite',
       },
     },
   },

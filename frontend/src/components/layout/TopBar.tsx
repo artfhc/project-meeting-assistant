@@ -19,14 +19,30 @@ function formatElapsed(seconds: number): string {
 function StatusPill({ isRecording }: { isRecording: boolean }) {
   if (isRecording) {
     return (
-      <span className="flex items-center gap-1.5 text-sm font-medium text-red-400">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-red-400" />
+      <span
+        className="flex items-center gap-1.5 text-xs tracking-widest uppercase"
+        style={{ color: 'var(--color-amber)' }}
+      >
+        {/* Pulsing amber dot */}
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{
+            backgroundColor: 'var(--color-amber)',
+            animation: 'dot-pulse 1.4s ease-in-out infinite',
+          }}
+          aria-hidden="true"
+        />
         Recording
       </span>
     )
   }
   return (
-    <span className="text-sm font-medium text-gray-500">Idle</span>
+    <span
+      className="text-xs tracking-widest uppercase"
+      style={{ color: 'var(--color-text-faint)' }}
+    >
+      Idle
+    </span>
   )
 }
 
@@ -162,27 +178,53 @@ export default function TopBar() {
   }
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-4 border-b border-gray-800 bg-gray-950 px-4">
-      {/* Record / Stop button */}
+    <header
+      className="flex h-12 shrink-0 items-center gap-5 border-b px-4"
+      style={{
+        backgroundColor: 'var(--color-bg-raised)',
+        borderColor: 'var(--color-border-warm)',
+      }}
+    >
+      {/* Record / Stop button — physical hardware feel */}
       <button
         onClick={handleToggle}
         disabled={isBusy}
-        className={[
-          'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        className="flex items-center gap-2.5 px-4 py-1.5 text-xs tracking-widest uppercase transition-all disabled:cursor-not-allowed disabled:opacity-40"
+        style={
           isRecording
-            ? 'bg-red-600 text-white hover:bg-red-700'
-            : 'bg-brand-600 text-white hover:bg-brand-700',
-        ].join(' ')}
+            ? {
+                backgroundColor: '#1a1200',
+                color: 'var(--color-amber)',
+                border: '1px solid var(--color-amber)',
+                boxShadow: '0 0 12px rgba(245,158,11,0.25), inset 0 1px 2px rgba(0,0,0,0.6)',
+                animation: 'amber-pulse 2s ease-in-out infinite',
+              }
+            : {
+                backgroundColor: 'var(--color-bg-muted)',
+                color: '#e4e4e7',
+                border: '1px solid var(--color-border-muted)',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.5)',
+              }
+        }
       >
         {isRecording ? (
           <>
-            <span className="h-3 w-3 rounded-sm bg-white" aria-hidden="true" />
+            {/* Square stop icon */}
+            <span
+              className="h-2.5 w-2.5 shrink-0"
+              style={{ backgroundColor: 'var(--color-amber)', borderRadius: '1px' }}
+              aria-hidden="true"
+            />
             Stop
           </>
         ) : (
           <>
-            <span className="h-3 w-3 rounded-full bg-white" aria-hidden="true" />
-            Record
+            {/* Circle record icon */}
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full bg-white"
+              aria-hidden="true"
+            />
+            REC
           </>
         )}
       </button>
@@ -190,24 +232,40 @@ export default function TopBar() {
       {/* Status */}
       <StatusPill isRecording={isRecording} />
 
-      {/* Elapsed time while recording */}
+      {/* Elapsed time — large monospace, amber when recording */}
       {isRecording && (
-        <span className="font-mono text-sm text-red-400">
+        <span
+          className="tabular-nums"
+          style={{
+            color: 'var(--color-amber)',
+            fontSize: '15px',
+            letterSpacing: '0.05em',
+          }}
+        >
           {formatElapsed(elapsedSeconds)}
         </span>
       )}
 
-      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Device selector */}
-      <label className="flex items-center gap-2 text-sm text-gray-400">
-        <span className="hidden sm:inline">Input</span>
+      {/* Device selector — dark aesthetic, minimal border */}
+      <label
+        className="flex items-center gap-2 text-xs"
+        style={{ color: 'var(--color-text-muted)' }}
+      >
+        <span>Input</span>
         <select
           value={selectedDeviceIndex}
           onChange={(e) => setSelectedDeviceIndex(Number(e.target.value))}
-          className="rounded-md border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-gray-200 focus:outline-none focus:ring-1 focus:ring-brand-500"
           disabled={audioDevices.length === 0}
+          className="text-xs focus:outline-none"
+          style={{
+            backgroundColor: 'var(--color-bg-muted)',
+            border: '1px solid var(--color-border-muted)',
+            color: '#a1a1aa',
+            padding: '3px 8px',
+            maxWidth: '200px',
+          }}
         >
           {audioDevices.length === 0 ? (
             <option value={-1}>Default device</option>

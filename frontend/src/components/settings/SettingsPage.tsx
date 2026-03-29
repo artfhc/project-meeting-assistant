@@ -10,41 +10,107 @@ import type { Settings } from '../../types'
 function Field({
   label,
   htmlFor,
+  hint,
   children,
 }: {
   label: string
   htmlFor: string
+  hint?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <div className="space-y-1.5">
       <label
         htmlFor={htmlFor}
-        className="block text-sm font-medium text-gray-300"
+        className="block text-xs tracking-widest uppercase"
+        style={{ color: 'var(--color-text-muted)' }}
       >
         {label}
       </label>
       {children}
+      {hint && (
+        <p className="text-xs" style={{ color: 'var(--color-text-faint)' }}>
+          {hint}
+        </p>
+      )}
     </div>
   )
 }
 
-const inputClass =
-  'w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  backgroundColor: 'var(--color-bg-muted)',
+  border: '1px solid var(--color-border-muted)',
+  color: '#d4d4d8',
+  padding: '6px 10px',
+  fontSize: '12px',
+  fontFamily: '"DM Mono", monospace',
+  outline: 'none',
+}
 
-const selectClass =
-  'w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-200 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  cursor: 'pointer',
+}
+
+function StyledInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      {...props}
+      style={{ ...inputStyle, ...props.style }}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = 'var(--color-amber)'
+        props.onFocus?.(e)
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = 'var(--color-border-muted)'
+        props.onBlur?.(e)
+      }}
+    />
+  )
+}
+
+function StyledSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      style={{ ...selectStyle, ...props.style }}
+      onFocus={(e) => {
+        e.currentTarget.style.borderColor = 'var(--color-amber)'
+        props.onFocus?.(e)
+      }}
+      onBlur={(e) => {
+        e.currentTarget.style.borderColor = 'var(--color-border-muted)'
+        props.onBlur?.(e)
+      }}
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Section divider
+// ---------------------------------------------------------------------------
+
+function Section({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <span
+        className="text-xs tracking-widest uppercase"
+        style={{ color: 'var(--color-amber)', whiteSpace: 'nowrap' }}
+      >
+        {title}
+      </span>
+      <div className="h-px flex-1" style={{ backgroundColor: 'var(--color-border-subtle)' }} />
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // SettingsPage
 // ---------------------------------------------------------------------------
 
 const WHISPER_MODELS: Settings['whisper_model'][] = [
-  'tiny',
-  'base',
-  'small',
-  'medium',
-  'large',
+  'tiny', 'base', 'small', 'medium', 'large',
 ]
 
 const DEFAULT_SETTINGS: Settings = {
@@ -64,21 +130,14 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [promptKeys, setPromptKeys] = useState<string[]>([])
 
-  // Sync form when the store gets populated externally (e.g. after the App's
-  // initial data load completes after backend becomes ready)
   useEffect(() => {
-    if (storeSettings) {
-      setForm(storeSettings)
-    }
+    if (storeSettings) setForm(storeSettings)
   }, [storeSettings])
 
-  // Load available prompt template keys from the backend on mount.
   useEffect(() => {
     listPromptKeys()
       .then(setPromptKeys)
-      .catch((err) => {
-        console.error('[SettingsPage] Failed to load prompt keys:', err)
-      })
+      .catch((err) => console.error('[SettingsPage] Failed to load prompt keys:', err))
   }, [])
 
   function handleChange<K extends keyof Settings>(key: K, value: Settings[K]) {
@@ -100,137 +159,157 @@ export default function SettingsPage() {
 
   async function handleChooseOutputDir() {
     const path = await window.electronAPI?.openFolder()
-    if (path) {
-      handleChange('output_dir', path)
-    }
+    if (path) handleChange('output_dir', path)
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto" style={{ backgroundColor: 'var(--color-bg-base)' }}>
       <div className="mx-auto max-w-xl px-6 py-8">
-        <h2 className="mb-6 text-lg font-semibold text-gray-100">Settings</h2>
+        <h2
+          className="mb-8 text-xs tracking-widest uppercase"
+          style={{ color: 'var(--color-text-muted)' }}
+        >
+          Configuration
+        </h2>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
-          {/* OpenAI API Key */}
+
+          <Section title="API" />
+
           <Field label="OpenAI API Key" htmlFor="openai_api_key">
-            <input
+            <StyledInput
               id="openai_api_key"
               type="password"
               autoComplete="off"
               value={form.openai_api_key}
               onChange={(e) => handleChange('openai_api_key', e.target.value)}
               placeholder="sk-..."
-              className={inputClass}
             />
           </Field>
 
-          {/* Whisper Model */}
-          <Field label="Whisper Model" htmlFor="whisper_model">
-            <select
+          <Section title="Transcription" />
+
+          <Field
+            label="Whisper Model"
+            htmlFor="whisper_model"
+            hint="Larger models are more accurate but slower to run."
+          >
+            <StyledSelect
               id="whisper_model"
               value={form.whisper_model}
               onChange={(e) =>
-                handleChange(
-                  'whisper_model',
-                  e.target.value as Settings['whisper_model'],
-                )
+                handleChange('whisper_model', e.target.value as Settings['whisper_model'])
               }
-              className={selectClass}
             >
               {WHISPER_MODELS.map((model) => (
                 <option key={model} value={model}>
-                  {model.charAt(0).toUpperCase() + model.slice(1)}
+                  {model}
                 </option>
               ))}
-            </select>
-            <p className="text-xs text-gray-600">
-              Larger models are more accurate but slower to run.
-            </p>
+            </StyledSelect>
           </Field>
 
-          {/* Audio Device Index */}
-          <Field label="Audio Device Index" htmlFor="audio_device_index">
-            <input
+          <Field
+            label="Audio Device Index"
+            htmlFor="audio_device_index"
+            hint="Set to -1 to use the system default input device."
+          >
+            <StyledInput
               id="audio_device_index"
               type="number"
               min={-1}
               value={form.audio_device_index}
-              onChange={(e) =>
-                handleChange('audio_device_index', Number(e.target.value))
-              }
-              className={inputClass}
+              onChange={(e) => handleChange('audio_device_index', Number(e.target.value))}
             />
-            <p className="text-xs text-gray-600">
-              Set to -1 to use the system default input device.
-            </p>
           </Field>
 
-          {/* Output Directory */}
+          <Section title="Output" />
+
           <Field label="Output Directory" htmlFor="output_dir">
             <div className="flex gap-2">
-              <input
+              <StyledInput
                 id="output_dir"
                 type="text"
                 value={form.output_dir}
                 onChange={(e) => handleChange('output_dir', e.target.value)}
                 placeholder="/Users/you/Meetings"
-                className={inputClass}
+                style={{ flex: 1, width: 'auto' }}
               />
               <button
                 type="button"
                 onClick={() => void handleChooseOutputDir()}
-                className="shrink-0 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-700"
+                className="shrink-0 text-xs tracking-widest uppercase transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-bg-muted)',
+                  border: '1px solid var(--color-border-muted)',
+                  color: 'var(--color-text-muted)',
+                  padding: '6px 12px',
+                  fontFamily: '"DM Mono", monospace',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-amber)'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-amber)'
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border-muted)'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-muted)'
+                }}
               >
                 Browse
               </button>
             </div>
           </Field>
 
-          {/* Default Prompt Key */}
-          <Field label="Default Prompt Key" htmlFor="default_prompt_key">
-            <select
+          <Section title="Summarization" />
+
+          <Field
+            label="Default Prompt Key"
+            htmlFor="default_prompt_key"
+            hint={<>Template keys loaded from <code style={{ fontFamily: '"DM Mono", monospace' }}>config/prompts.yaml</code>.</>}
+          >
+            <StyledSelect
               id="default_prompt_key"
               value={form.default_prompt_key}
               onChange={(e) => handleChange('default_prompt_key', e.target.value)}
-              className={selectClass}
             >
-              {/* Empty option lets the user choose "no override" (backend uses its built-in default). */}
               <option value="">— use built-in default —</option>
               {promptKeys.map((key) => (
                 <option key={key} value={key}>
                   {key}
                 </option>
               ))}
-            </select>
-            <p className="text-xs text-gray-600">
-              Template keys are loaded from{' '}
-              <code className="font-mono">config/prompts.yaml</code>.
-            </p>
+            </StyledSelect>
           </Field>
 
-          {/* Theme */}
+          <Section title="Appearance" />
+
           <Field label="Theme" htmlFor="theme">
-            <select
+            <StyledSelect
               id="theme"
               value={form.theme}
-              onChange={(e) =>
-                handleChange('theme', e.target.value as Settings['theme'])
-              }
-              className={selectClass}
+              onChange={(e) => handleChange('theme', e.target.value as Settings['theme'])}
             >
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-            </select>
+              <option value="dark">dark</option>
+              <option value="light">light</option>
+            </StyledSelect>
           </Field>
 
-          {/* Save button */}
-          <div className="pt-2">
+          {/* Save */}
+          <div className="pt-4">
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-950 disabled:cursor-not-allowed disabled:opacity-50"
+              className="text-xs tracking-widest uppercase transition-all disabled:cursor-not-allowed disabled:opacity-40"
+              style={{
+                backgroundColor: isSaving ? 'var(--color-bg-muted)' : 'var(--color-amber)',
+                color: isSaving ? 'var(--color-text-muted)' : '#0d0d0f',
+                border: '1px solid var(--color-amber)',
+                padding: '7px 20px',
+                fontFamily: '"DM Mono", monospace',
+                fontWeight: 500,
+              }}
             >
-              {isSaving ? 'Saving...' : 'Save Settings'}
+              {isSaving ? 'saving...' : 'save'}
             </button>
           </div>
         </form>

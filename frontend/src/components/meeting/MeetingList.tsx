@@ -4,40 +4,45 @@ import { deleteMeeting, getMeeting, updateMeeting } from '../../api/meetings'
 import type { Meeting, MeetingStatus } from '../../types'
 
 // ---------------------------------------------------------------------------
-// Status badge
+// Status dot — colored dot + label, no pill chrome
 // ---------------------------------------------------------------------------
 
-const STATUS_STYLES: Record<MeetingStatus, string> = {
-  created: 'bg-gray-800 text-gray-400',
-  recording: 'bg-blue-900/60 text-blue-300',
-  recorded: 'bg-gray-800 text-gray-400',
-  transcribing: 'bg-yellow-900/60 text-yellow-300',
-  transcribed: 'bg-yellow-900/40 text-yellow-400',
-  summarizing: 'bg-yellow-900/60 text-yellow-300',
-  done: 'bg-green-900/60 text-green-300',
-  error: 'bg-red-900/60 text-red-300',
+const STATUS_DOT: Record<MeetingStatus, string> = {
+  created:      '#52525b',
+  recording:    '#60a5fa',
+  recorded:     '#52525b',
+  transcribing: '#f59e0b',
+  transcribed:  '#f59e0b',
+  summarizing:  '#f59e0b',
+  done:         '#4ade80',
+  error:        '#f87171',
 }
 
 const STATUS_LABELS: Record<MeetingStatus, string> = {
-  created: 'Created',
-  recording: 'Recording',
-  recorded: 'Recorded',
-  transcribing: 'Transcribing',
-  transcribed: 'Transcribed',
-  summarizing: 'Summarizing',
-  done: 'Done',
-  error: 'Error',
+  created:      'created',
+  recording:    'recording',
+  recorded:     'recorded',
+  transcribing: 'transcribing',
+  transcribed:  'transcribed',
+  summarizing:  'summarizing',
+  done:         'done',
+  error:        'error',
 }
 
-function StatusBadge({ status }: { status: MeetingStatus }) {
+function StatusDot({ status }: { status: MeetingStatus }) {
   return (
-    <span
-      className={[
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-        STATUS_STYLES[status],
-      ].join(' ')}
-    >
-      {STATUS_LABELS[status]}
+    <span className="flex items-center gap-1 shrink-0">
+      <span
+        className="h-1.5 w-1.5 rounded-full shrink-0"
+        style={{ backgroundColor: STATUS_DOT[status] }}
+        aria-hidden="true"
+      />
+      <span
+        className="text-xs"
+        style={{ color: STATUS_DOT[status] }}
+      >
+        {STATUS_LABELS[status]}
+      </span>
     </span>
   )
 }
@@ -76,7 +81,6 @@ function MeetingRow({
     e.stopPropagation()
     setEditValue(meeting.title)
     setIsEditing(true)
-    // Focus the input on the next frame after it mounts
     setTimeout(() => inputRef.current?.select(), 0)
   }
 
@@ -98,18 +102,28 @@ function MeetingRow({
 
   return (
     <div
-      className={[
-        'group flex w-full items-start gap-1 rounded-md px-3 py-2.5 text-left transition-colors',
+      className="group flex w-full items-start gap-1 text-left transition-colors"
+      style={
         isSelected
-          ? 'bg-gray-800 text-white'
-          : 'text-gray-300 hover:bg-gray-800/60',
-      ].join(' ')}
+          ? {
+              borderLeft: '2px solid var(--color-amber)',
+              backgroundColor: 'var(--color-bg-overlay)',
+              paddingLeft: '10px',
+              paddingRight: '12px',
+              paddingTop: '8px',
+              paddingBottom: '8px',
+            }
+          : {
+              borderLeft: '2px solid transparent',
+              paddingLeft: '10px',
+              paddingRight: '12px',
+              paddingTop: '8px',
+              paddingBottom: '8px',
+            }
+      }
     >
       {/* Clickable content area */}
-      <button
-        onClick={onSelect}
-        className="min-w-0 flex-1 text-left"
-      >
+      <button onClick={onSelect} className="min-w-0 flex-1 text-left">
         <div className="flex items-start justify-between gap-2">
           {isEditing ? (
             <input
@@ -119,45 +133,57 @@ function MeetingRow({
               onBlur={() => void commitEdit()}
               onKeyDown={handleKeyDown}
               onClick={(e) => e.stopPropagation()}
-              className="w-full rounded border border-brand-500 bg-gray-900 px-1 py-0 text-sm font-medium text-white focus:outline-none focus:ring-1 focus:ring-brand-500"
+              className="w-full bg-transparent px-0 py-0 text-xs focus:outline-none"
+              style={{
+                color: '#e4e4e7',
+                borderBottom: '1px solid var(--color-amber)',
+              }}
               autoFocus
             />
           ) : (
             <span
-              className="truncate text-sm font-medium leading-tight"
+              className="truncate text-xs leading-tight"
+              style={{ color: isSelected ? '#e4e4e7' : 'var(--color-text-base)' }}
               onDoubleClick={handleTitleDoubleClick}
               title="Double-click to rename"
             >
               {meeting.title}
             </span>
           )}
-          <StatusBadge status={meeting.status} />
         </div>
-        <span className="text-xs text-gray-500">
-          {formatDate(meeting.created_at)}
-        </span>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <span
+            className="text-xs tabular-nums"
+            style={{ color: 'var(--color-text-faint)' }}
+          >
+            {formatDate(meeting.created_at)}
+          </span>
+          <StatusDot status={meeting.status} />
+        </div>
         {meeting.error_msg && (
-          <span className="mt-0.5 truncate text-xs text-red-400">
+          <span className="mt-0.5 block truncate text-xs" style={{ color: '#f87171' }}>
             {meeting.error_msg}
           </span>
         )}
       </button>
 
-      {/* Delete button — visible on row hover */}
+      {/* Delete button — appears on row hover */}
       <button
         onClick={(e) => {
           e.stopPropagation()
           onDelete()
         }}
         aria-label={`Delete "${meeting.title}"`}
-        className="mt-0.5 shrink-0 rounded p-0.5 text-gray-600 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 focus:opacity-100"
+        className="mt-0.5 shrink-0 p-0.5 opacity-0 transition-all group-hover:opacity-100 focus:opacity-100"
+        style={{ color: 'var(--color-text-faint)' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-amber)' }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-faint)' }}
       >
-        {/* Simple × glyph — no icon library dependency */}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 16 16"
           fill="currentColor"
-          className="h-3.5 w-3.5"
+          className="h-3 w-3"
           aria-hidden="true"
         >
           <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66H14.5a.5.5 0 0 0 0-1h-.996a.59.59 0 0 0-.01 0H11Zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916Z" />
@@ -193,7 +219,6 @@ export default function MeetingList() {
       upsertMeeting(updated)
     } catch (err) {
       console.error('[MeetingList] Failed to update meeting title:', err)
-      // Re-fetch to ensure local state stays consistent with backend
       try {
         const refreshed = await getMeeting(id)
         upsertMeeting(refreshed)
@@ -206,8 +231,11 @@ export default function MeetingList() {
   if (meetings.length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-6">
-        <p className="text-center text-sm text-gray-600">
-          No past meetings yet. Start a new recording to get started.
+        <p
+          className="text-center text-xs"
+          style={{ color: 'var(--color-text-faint)' }}
+        >
+          No past meetings yet.
         </p>
       </div>
     )
@@ -215,7 +243,7 @@ export default function MeetingList() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="space-y-1 p-2">
+      <div className="py-1">
         {meetings.map((meeting) => (
           <MeetingRow
             key={meeting.id}

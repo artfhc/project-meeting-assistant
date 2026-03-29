@@ -3,16 +3,24 @@ import TranscriptPanel from './TranscriptPanel'
 import SummaryPanel from './SummaryPanel'
 
 /**
- * History view — three-column layout showing past meetings list,
- * selected transcript, and selected summary.
+ * History view — three-column layout: past meetings list, transcript, summary.
  */
 export default function HistoryView() {
   return (
     <>
-      {/* Left list */}
-      <section className="flex w-64 shrink-0 flex-col border-r border-gray-800">
-        <div className="shrink-0 border-b border-gray-800 px-4 py-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+      {/* Left: meeting list */}
+      <section
+        className="flex w-56 shrink-0 flex-col border-r"
+        style={{ borderColor: 'var(--color-border-warm)', backgroundColor: 'var(--color-bg-raised)' }}
+      >
+        <div
+          className="shrink-0 border-b px-4 py-2"
+          style={{ borderColor: 'var(--color-border-subtle)' }}
+        >
+          <h2
+            className="text-xs tracking-widest uppercase"
+            style={{ color: 'var(--color-text-faint)' }}
+          >
             Past Meetings
           </h2>
         </div>
@@ -22,9 +30,18 @@ export default function HistoryView() {
       </section>
 
       {/* Center: Transcript */}
-      <section className="flex min-w-0 flex-1 flex-col border-r border-gray-800">
-        <div className="shrink-0 border-b border-gray-800 px-4 py-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+      <section
+        className="flex min-w-0 flex-1 flex-col border-r"
+        style={{ borderColor: 'var(--color-border-warm)' }}
+      >
+        <div
+          className="shrink-0 border-b px-4 py-2"
+          style={{ borderColor: 'var(--color-border-subtle)' }}
+        >
+          <h2
+            className="text-xs tracking-widest uppercase"
+            style={{ color: 'var(--color-text-faint)' }}
+          >
             Transcript
           </h2>
         </div>
@@ -35,11 +52,21 @@ export default function HistoryView() {
 
       {/* Right: Summary */}
       <section
-        className="flex flex-col border-l border-gray-800"
-        style={{ width: 'var(--panel-width)' }}
+        className="flex flex-col"
+        style={{
+          width: 'var(--panel-width)',
+          borderLeft: '1px solid var(--color-border-warm)',
+          backgroundColor: 'var(--color-bg-raised)',
+        }}
       >
-        <div className="shrink-0 border-b border-gray-800 px-4 py-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <div
+          className="shrink-0 border-b px-4 py-2"
+          style={{ borderColor: 'var(--color-border-subtle)' }}
+        >
+          <h2
+            className="text-xs tracking-widest uppercase"
+            style={{ color: 'var(--color-text-faint)' }}
+          >
             Summary
           </h2>
         </div>

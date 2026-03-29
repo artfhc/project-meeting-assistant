@@ -17,20 +17,24 @@ function JobStatusIndicator({ job }: { job: Job }) {
     <div className="flex items-center gap-3">
       {/* Stage label */}
       <span
-        className={[
-          'text-xs font-medium capitalize',
-          isError ? 'text-red-400' : 'text-gray-400',
-        ].join(' ')}
+        className="text-xs capitalize tabular-nums"
+        style={{ color: isError ? '#f87171' : 'var(--color-text-muted)' }}
       >
         {job.message || job.stage}
       </span>
 
-      {/* Progress bar */}
+      {/* Progress bar — amber fill, very subtle track */}
       {isInProgress && (
-        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-gray-800">
+        <div
+          className="h-0.5 w-24 overflow-hidden"
+          style={{ backgroundColor: 'var(--color-border-muted)' }}
+        >
           <div
-            className="h-full rounded-full bg-brand-500 transition-all duration-300"
-            style={{ width: `${job.progress}%` }}
+            className="h-full transition-all duration-300"
+            style={{
+              width: `${job.progress}%`,
+              backgroundColor: 'var(--color-amber)',
+            }}
             role="progressbar"
             aria-valuenow={job.progress}
             aria-valuemin={0}
@@ -41,7 +45,10 @@ function JobStatusIndicator({ job }: { job: Job }) {
 
       {/* Percentage */}
       {isInProgress && (
-        <span className="text-xs tabular-nums text-gray-500">
+        <span
+          className="text-xs tabular-nums"
+          style={{ color: 'var(--color-text-faint)' }}
+        >
           {job.progress}%
         </span>
       )}
@@ -59,20 +66,37 @@ export default function BottomBar() {
   const activeJob = selectedMeetingId ? jobs[selectedMeetingId] ?? null : null
 
   return (
-    <footer className="flex h-9 shrink-0 items-center gap-4 border-t border-gray-800 bg-gray-950 px-4">
+    <footer
+      className="flex h-8 shrink-0 items-center gap-4 border-t px-4"
+      style={{
+        backgroundColor: 'var(--color-bg-raised)',
+        borderColor: 'var(--color-border-subtle)',
+      }}
+    >
       {/* Elapsed time */}
-      <span className="font-mono text-xs tabular-nums text-gray-500">
+      <span
+        className="text-xs tabular-nums"
+        style={{ color: 'var(--color-text-faint)' }}
+      >
         {formatElapsed(elapsedSeconds)}
       </span>
 
-      <span className="text-gray-800" aria-hidden="true">|</span>
+      {/* Unicode separator */}
+      <span
+        className="text-xs"
+        style={{ color: 'var(--color-border-muted)' }}
+        aria-hidden="true"
+      >
+        &#x2502;
+      </span>
 
       {/* Save path */}
       <span
-        className="flex-1 truncate text-xs text-gray-600"
+        className="flex-1 truncate text-xs"
+        style={{ color: 'var(--color-text-faint)' }}
         title={selectedMeeting?.audio_path ?? undefined}
       >
-        {selectedMeeting?.audio_path ?? 'No file selected'}
+        {selectedMeeting?.audio_path ?? 'no file selected'}
       </span>
 
       {/* Job status */}

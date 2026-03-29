@@ -1,21 +1,68 @@
+/* DM Mono — warmth + precision, perfect for a recording tool */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+
 /* Tailwind CSS v3 directives — processed by PostCSS via vite */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* App-level base resets on top of Tailwind Preflight */
 @layer base {
   :root {
-    /* Design token: sidebar width */
-    --sidebar-width: 240px;
-    /* Design token: right panel width */
+    /* Layout tokens */
+    --sidebar-width: 200px;
     --panel-width: 320px;
+
+    /* Warm dark palette */
+    --color-bg-base:    #0d0d0f;
+    --color-bg-raised:  #111114;
+    --color-bg-overlay: #16161a;
+    --color-bg-muted:   #1c1c21;
+
+    --color-border-subtle: #1f1f25;
+    --color-border-warm:   #27272f;
+    --color-border-muted:  #2e2e38;
+
+    --color-amber:     #f59e0b;
+    --color-amber-dim: rgba(245, 158, 11, 0.15);
+
+    --color-text-base:  #d4d4d8;
+    --color-text-muted: #71717a;
+    --color-text-faint: #3f3f46;
   }
 
   html,
   body,
   #root {
     @apply h-full;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Very subtle noise grain — adds tactility, keeps the pro-tool feel */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    background-size: 150px 150px;
+    opacity: 0.3;
+  }
+
+  /* Minimal warm scrollbars */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-muted);
+    border-radius: 0;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #52525b;
   }
 
   /* Respect OS-level reduced motion preference */

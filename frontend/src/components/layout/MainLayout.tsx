@@ -27,7 +27,7 @@ export default function MainLayout() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-gray-950 text-gray-100">
+    <div className="flex h-full flex-col" style={{ backgroundColor: 'var(--color-bg-base)', color: 'var(--color-text-base)' }}>
       {/* Top bar — manages its own device state and recording API calls */}
       <TopBar />
 

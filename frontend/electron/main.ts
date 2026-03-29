@@ -19,6 +19,10 @@ import {
 import { spawn, type ChildProcess } from 'child_process'
 import * as http from 'http'
 import * as path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // ---------------------------------------------------------------------------
 // Constants
