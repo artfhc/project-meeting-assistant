@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useRecordingStore } from '../../stores/recordingStore'
 import { useMeetingStore } from '../../stores/meetingStore'
 import { useJobStore } from '../../stores/jobStore'
-import { useSettingsStore } from '../../stores/settingsStore'
 import { createMeeting, getMeeting } from '../../api/meetings'
 import { startRecording, stopRecording } from '../../api/recordings'
 import { enqueueTranscription } from '../../api/transcriptions'
-import { enqueueSummary } from '../../api/summaries'
 import { listAudioDevices } from '../../api/devices'
 import type { AudioDevice } from '../../types'
 
@@ -46,7 +44,7 @@ function StatusPill({ isRecording }: { isRecording: boolean }) {
   )
 }
 
-// Stages that belong to the transcription phase (before summarization kicks off)
+// Stages that belong to the transcription phase
 const TRANSCRIPTION_STAGES = new Set(['transcribing', 'cleaning'])
 
 export default function TopBar() {
@@ -61,14 +59,12 @@ export default function TopBar() {
   const selectMeeting = useMeetingStore((s) => s.selectMeeting)
 
   const jobs = useJobStore((s) => s.jobs)
-  const defaultPromptKey = useSettingsStore((s) => s.settings?.default_prompt_key)
 
   const [audioDevices, setAudioDevices] = useState<AudioDevice[]>([])
   const [selectedDeviceIndex, setSelectedDeviceIndex] = useState(-1)
   const [isBusy, setIsBusy] = useState(false)
 
-  // Tracks the job stage from the previous render so we can tell which phase
-  // just completed when the stage transitions to 'done'.
+  // Tracks the job stage from the previous render so we can detect phase transitions
   const prevStageRef = useRef<string | null>(null)
 
   // ---------------------------------------------------------------------------
@@ -89,7 +85,7 @@ export default function TopBar() {
   }, [])
 
   // ---------------------------------------------------------------------------
-  // Job watcher — drives post-transcription and post-summarization side effects
+  // Job watcher — refreshes meeting data after transcription or summarization
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
@@ -103,17 +99,14 @@ export default function TopBar() {
 
     if (currentStage === 'done') {
       if (prevStage !== null && TRANSCRIPTION_STAGES.has(prevStage)) {
-        // Transcription phase just completed — fetch updated meeting, then enqueue summary
+        // Transcription phase just completed — refresh meeting so transcript is available
         getMeeting(currentMeetingId)
-          .then((meeting) => {
-            upsertMeeting(meeting)
-            return enqueueSummary(currentMeetingId, defaultPromptKey ?? null)
-          })
+          .then(upsertMeeting)
           .catch((err) => {
             console.error('[TopBar] Error after transcription done:', err)
           })
       } else if (prevStage === 'summarizing') {
-        // Summarization phase just completed — refresh meeting data
+        // Summarization phase just completed — refresh meeting so summary is available
         getMeeting(currentMeetingId)
           .then(upsertMeeting)
           .catch((err) => {
@@ -129,7 +122,7 @@ export default function TopBar() {
     }
 
     prevStageRef.current = currentStage
-  }, [jobs, currentMeetingId, upsertMeeting, defaultPromptKey])
+  }, [jobs, currentMeetingId, upsertMeeting])
 
   // ---------------------------------------------------------------------------
   // Record / Stop handlers
