@@ -6,10 +6,7 @@ import { useMeetingStore } from './stores/meetingStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { listMeetings } from './api/meetings'
 import { getSettings } from './api/settings'
-
-// ---------------------------------------------------------------------------
-// Extend window with the Electron context bridge API
-// ---------------------------------------------------------------------------
+import { BASE_URL } from './api/client'
 
 declare global {
   interface Window {
@@ -20,8 +17,6 @@ declare global {
         filters?: Array<{ name: string; extensions: string[] }>
       }): Promise<string | null>
       getVersion(): Promise<string>
-      onBackendReady(cb: () => void): () => void
-      onBackendError(cb: (msg: string) => void): () => void
     }
   }
 }
@@ -100,6 +95,40 @@ async function loadInitialData(
   }
 }
 
+const POLL_INTERVAL_MS = 500
+const POLL_TIMEOUT_MS = 30_000
+
+function pollBackendReady(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + POLL_TIMEOUT_MS
+    let timerId: ReturnType<typeof setTimeout> | null = null
+
+    signal.addEventListener('abort', () => {
+      if (timerId !== null) clearTimeout(timerId)
+      reject(new DOMException('Aborted', 'AbortError'))
+    })
+
+    const attempt = () => {
+      if (signal.aborted) return
+      fetch(`${BASE_URL}/health`)
+        .then((r) => {
+          void r.body?.cancel()
+          if (r.ok) resolve(); else schedule()
+        })
+        .catch(() => schedule())
+    }
+    const schedule = () => {
+      if (signal.aborted) return
+      if (Date.now() > deadline) {
+        reject(new Error('Backend did not become ready in time'))
+      } else {
+        timerId = setTimeout(attempt, POLL_INTERVAL_MS)
+      }
+    }
+    attempt()
+  })
+}
+
 export default function App() {
   const [appState, setAppState] = useState<AppState>('loading')
   const [errorMessage, setErrorMessage] = useState('')
@@ -108,30 +137,20 @@ export default function App() {
   const setSettings = useSettingsStore((s) => s.setSettings)
 
   useEffect(() => {
-    // Apply dark mode class unconditionally — settings store can toggle later
     document.documentElement.classList.add('dark')
 
-    // If running outside Electron (e.g. plain Vite dev server), skip IPC
-    if (!window.electronAPI) {
-      setAppState('ready')
-      void loadInitialData(setMeetings, setSettings)
-      return
-    }
-
-    const unsubReady = window.electronAPI.onBackendReady(() => {
-      setAppState('ready')
-      void loadInitialData(setMeetings, setSettings)
-    })
-
-    const unsubError = window.electronAPI.onBackendError((msg) => {
-      setErrorMessage(msg)
-      setAppState('error')
-    })
-
-    return () => {
-      unsubReady()
-      unsubError()
-    }
+    const controller = new AbortController()
+    pollBackendReady(controller.signal)
+      .then(() => {
+        setAppState('ready')
+        return loadInitialData(setMeetings, setSettings)
+      })
+      .catch((err: Error) => {
+        if (err.name === 'AbortError') return
+        setErrorMessage(err.message)
+        setAppState('error')
+      })
+    return () => controller.abort()
   }, [setMeetings, setSettings])
 
   if (appState === 'loading') return <LoadingScreen />

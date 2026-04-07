@@ -1,11 +1,22 @@
 import MeetingList from './MeetingList'
 import TranscriptPanel from './TranscriptPanel'
 import SummaryPanel from './SummaryPanel'
+import { useMeetingStore } from '../../stores/meetingStore'
 
 /**
  * History view — three-column layout: past meetings list, transcript, summary.
  */
 export default function HistoryView() {
+  const meetings = useMeetingStore((s) => s.meetings)
+  const selectedMeetingId = useMeetingStore((s) => s.selectedMeetingId)
+  const selectMeeting = useMeetingStore((s) => s.selectMeeting)
+
+  // Auto-select the most recent meeting on first render if none is selected.
+  // Read store state directly (not from effect deps) to avoid re-running when
+  // meetings update during the session.
+  if (!selectedMeetingId && meetings.length > 0) {
+    selectMeeting(meetings[0].id)
+  }
   return (
     <>
       {/* Left: meeting list */}

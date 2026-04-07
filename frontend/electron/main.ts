@@ -239,19 +239,20 @@ function createWindow(): void {
  * (e.g., backend:error fires before the window finishes loading).
  */
 function sendToRenderer(channel: 'backend:ready' | 'backend:error', ...args: unknown[]): void {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(channel, ...args)
-  } else {
-    // Buffer delivery by waiting for the renderer to finish loading.
-    // This handles the race between backend health poll and window load.
-    const send = (): void => {
-      mainWindow?.webContents.send(channel, ...args)
-    }
+  const send = (): void => {
+    mainWindow?.webContents.send(channel, ...args)
+  }
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.once('did-finish-load', send)
-    }
-    // If mainWindow is null at this point the app is shutting down; drop msg.
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    // Window not created yet — drop the message (app is shutting down).
+    return
+  }
+
+  if (mainWindow.webContents.isLoading()) {
+    // Renderer is still loading — deliver once it finishes.
+    mainWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
   }
 }
 

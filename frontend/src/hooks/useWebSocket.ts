@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useJobStore } from '../stores/jobStore'
+import { useMeetingStore } from '../stores/meetingStore'
+import { getMeeting } from '../api/meetings'
+import { BASE_URL } from '../api/client'
 import type { Job } from '../types'
 
-const WS_URL = 'ws://localhost:7357/ws'
+const WS_URL = `${BASE_URL.replace(/^http/, 'ws')}/ws`
 const RECONNECT_DELAY_MS = 3000
 
 interface WebSocketMessage {
@@ -17,9 +20,13 @@ interface UseWebSocketResult {
 export function useWebSocket(): UseWebSocketResult {
   const [connected, setConnected] = useState(false)
   const setJob = useJobStore((state) => state.setJob)
+  const upsertMeeting = useMeetingStore((state) => state.upsertMeeting)
   const mountedRef = useRef(true)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Track refreshed job IDs to avoid duplicate getMeeting calls if the backend
+  // sends multiple done/error messages for the same job.
+  const refreshedJobsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     mountedRef.current = true
@@ -42,7 +49,17 @@ export function useWebSocket(): UseWebSocketResult {
         try {
           const data = JSON.parse(event.data as string) as WebSocketMessage
           if (data.type === 'job_progress') {
-            setJob(data as unknown as Job)
+            const job = data as unknown as Job
+            setJob(job)
+            // Refresh meeting data when a job finishes so transcript/summary
+            // are reflected in the store without requiring a page reload.
+            if ((job.stage === 'done' || job.stage === 'error') &&
+                !refreshedJobsRef.current.has(job.job_id)) {
+              refreshedJobsRef.current.add(job.job_id)
+              getMeeting(job.meeting_id)
+                .then((meeting) => upsertMeeting(meeting))
+                .catch(() => {/* meeting may have been deleted */})
+            }
           }
         } catch {
           // Silently ignore malformed messages — backend may send non-JSON pings
